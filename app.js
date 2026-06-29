@@ -2,12 +2,85 @@
   "use strict";
 
   const STORAGE_KEY = "karamozi-drug-timing-game:v1";
-  const THEME_KEY = "karamozi-drug-timing-game:theme";
-  const DRUGS = Array.isArray(window.DRUGS_DATA)
+  const TOPIC_KEY = "karamozi-drug-timing-game:topic";
+  const TIMING_DRUGS = Array.isArray(window.DRUGS_DATA)
     ? window.DRUGS_DATA.filter((drug) => drug.name && drug.consumptionTimeSorted)
     : [];
-  const OPTION_POOL = [...new Set(DRUGS.map((drug) => drug.consumptionTimeSorted).filter(Boolean))];
-  const drugById = new Map(DRUGS.map((drug) => [drug.id, drug]));
+  const TOPIC_DRUGS = Array.isArray(window.DRUG_TOPIC_DATA)
+    ? window.DRUG_TOPIC_DATA.filter((drug) => drug.brandName && drug.genericName)
+    : [];
+  const TOPICS = {
+    timing: {
+      id: "timing",
+      label: "با غذا / بی غذا",
+      detail: "زمان مصرف دارو نسبت به غذا",
+      data: TIMING_DRUGS,
+      getAnswer: (drug) => drug.consumptionTimeSorted,
+      getName: (drug) => drug.name,
+      getSubtitle: (drug) => drug.pname || "",
+      getChip: (drug) => drug.dosageForm || "فرم دارویی ثبت نشده",
+      getQuestionHtml: (drug) =>
+        `داروی <span class="drug-name">${escapeHtml(drug.name)}</span> چه زمانی نسبت به غذا مصرف می‌شود؟`,
+      getSubtitleText: (drug) => (drug.pname ? `نام فارسی: ${drug.pname}` : ""),
+      getFeedback: (drug) => drug.consumptionTime || `پاسخ صحیح: ${drug.consumptionTimeSorted}`,
+    },
+    brandGeneric: {
+      id: "brandGeneric",
+      label: "نام تجاری / ژنریک",
+      detail: "تطبیق Brand name با Generic name",
+      data: TOPIC_DRUGS.filter((drug) => drug.genericName),
+      getAnswer: (drug) => drug.genericName,
+      getName: (drug) => drug.brandName,
+      getSubtitle: (drug) => drug.drugClassification || drug.dosageForm || "",
+      getChip: (drug) => drug.drugClassification || "نام تجاری دارو",
+      getQuestionHtml: (drug) =>
+        `نام ژنریک داروی تجاری <span class="drug-name">${escapeHtml(drug.brandName)}</span> کدام است؟`,
+      getSubtitleText: (drug) => (drug.dosageForm ? `فرم دارویی: ${drug.dosageForm}` : ""),
+      getFeedback: (drug) =>
+        `${drug.brandName} = ${drug.genericName}${drug.drugClassification ? ` | ${drug.drugClassification}` : ""}`,
+    },
+    indication: {
+      id: "indication",
+      label: "اندیکاسیون",
+      detail: "کاربرد یا مورد مصرف دارو",
+      data: TOPIC_DRUGS.filter((drug) => drug.indicationAnswer),
+      getAnswer: (drug) => drug.indicationAnswer,
+      getName: (drug) => drug.brandName,
+      getSubtitle: (drug) => drug.genericName,
+      getChip: (drug) => drug.dosageForm || "فرم دارویی ثبت نشده",
+      getQuestionHtml: (drug) =>
+        `کاربرد اصلی داروی <span class="drug-name">${escapeHtml(drug.brandName)}</span> کدام است؟`,
+      getSubtitleText: (drug) => `نام ژنریک: ${drug.genericName}`,
+      getFeedback: (drug) => `کاربرد: ${drug.indication}`,
+    },
+    sideEffects: {
+      id: "sideEffects",
+      label: "عوارض جانبی",
+      detail: "Side effects مهم دارو",
+      data: TOPIC_DRUGS.filter((drug) => drug.sideEffectsAnswer),
+      getAnswer: (drug) => drug.sideEffectsAnswer,
+      getName: (drug) => drug.brandName,
+      getSubtitle: (drug) => drug.genericName,
+      getChip: (drug) => drug.dosageForm || "فرم دارویی ثبت نشده",
+      getQuestionHtml: (drug) =>
+        `کدام مورد از عوارض جانبی مهم داروی <span class="drug-name">${escapeHtml(drug.brandName)}</span> است؟`,
+      getSubtitleText: (drug) => `نام ژنریک: ${drug.genericName}`,
+      getFeedback: (drug) => `عوارض مهم: ${drug.sideEffects}`,
+    },
+  };
+  const TOPIC_IDS = Object.keys(TOPICS);
+  const topicDrugMaps = Object.fromEntries(
+    TOPIC_IDS.map((topicId) => [
+      topicId,
+      new Map(TOPICS[topicId].data.map((drug) => [drug.id, drug])),
+    ])
+  );
+  const optionPools = Object.fromEntries(
+    TOPIC_IDS.map((topicId) => [
+      topicId,
+      [...new Set(TOPICS[topicId].data.map((drug) => TOPICS[topicId].getAnswer(drug)).filter(Boolean))],
+    ])
+  );
   const numberFormatter = new Intl.NumberFormat("en-US");
   const faDate = new Intl.DateTimeFormat("fa-IR-u-nu-latn", {
     year: "numeric",
@@ -17,21 +90,14 @@
     minute: "2-digit",
   });
 
-  const fallbackStore = {
-    games: [],
-    mistakes: {},
-    totals: {
-      answered: 0,
-      correct: 0,
-    },
-  };
-
+  let selectedTopicId = loadSelectedTopic();
   let store = loadStore();
   let quiz = null;
 
   const elements = {
     views: [...document.querySelectorAll(".view")],
     navButtons: [...document.querySelectorAll("[data-nav]")],
+    topicRadios: [...document.querySelectorAll("input[name='question-topic']")],
     modeRadios: [...document.querySelectorAll("input[name='game-mode']")],
     randomCount: document.querySelector("#random-count"),
     feedback: document.querySelector("[data-feedback]"),
@@ -52,25 +118,32 @@
     topMistakes: document.querySelector("[data-top-mistakes]"),
     mistakeBoard: document.querySelector("[data-mistake-board]"),
     scoreBoard: document.querySelector("[data-score-board]"),
-    themeRadios: [...document.querySelectorAll("input[name='theme-mode']")],
   };
 
   init();
 
   function init() {
     elements.randomCount.value = "20";
-    applyTheme(loadTheme(), false);
+    document.documentElement.dataset.theme = "light";
 
     elements.navButtons.forEach((button) => {
       button.addEventListener("click", () => navigate(button.dataset.nav));
     });
 
-    elements.modeRadios.forEach((radio) => {
-      radio.addEventListener("change", updateModeSelection);
+    elements.topicRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        selectedTopicId = getTopic(radio.value).id;
+        saveSelectedTopic();
+        updateTopicSelection();
+        renderDashboard();
+        if (!quiz) renderIdleGame();
+        if (document.querySelector("#mistakes").classList.contains("is-active")) renderMistakes();
+        if (document.querySelector("#scores").classList.contains("is-active")) renderScores();
+      });
     });
 
-    elements.themeRadios.forEach((radio) => {
-      radio.addEventListener("change", () => applyTheme(radio.value));
+    elements.modeRadios.forEach((radio) => {
+      radio.addEventListener("change", updateModeSelection);
     });
 
     document.querySelector("[data-start-selected]").addEventListener("click", startSelectedMode);
@@ -83,6 +156,7 @@
     document.querySelector("[data-export-report]").addEventListener("click", exportReport);
     elements.nextQuestion.addEventListener("click", nextQuestion);
 
+    updateTopicSelection();
     updateModeSelection();
     renderDashboard();
     renderIdleGame();
@@ -92,18 +166,21 @@
   function loadStore() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return structuredCloneSafe(fallbackStore);
+      if (!raw) return makeEmptyStore();
       const parsed = JSON.parse(raw);
-      return {
-        games: Array.isArray(parsed.games) ? parsed.games : [],
-        mistakes: parsed.mistakes && typeof parsed.mistakes === "object" ? parsed.mistakes : {},
-        totals: {
-          answered: Number(parsed.totals?.answered || 0),
-          correct: Number(parsed.totals?.correct || 0),
-        },
-      };
+      const nextStore = makeEmptyStore();
+
+      if (parsed.topics && typeof parsed.topics === "object") {
+        TOPIC_IDS.forEach((topicId) => {
+          nextStore.topics[topicId] = normalizeTopicStore(parsed.topics[topicId]);
+        });
+        return nextStore;
+      }
+
+      nextStore.topics.timing = normalizeTopicStore(parsed);
+      return nextStore;
     } catch {
-      return structuredCloneSafe(fallbackStore);
+      return makeEmptyStore();
     }
   }
 
@@ -115,37 +192,52 @@
     }
   }
 
-  function structuredCloneSafe(value) {
-    return JSON.parse(JSON.stringify(value));
+  function makeEmptyStore() {
+    return {
+      topics: Object.fromEntries(TOPIC_IDS.map((topicId) => [topicId, makeEmptyTopicStore()])),
+    };
   }
 
-  function loadTheme() {
-    const requestedTheme = new URLSearchParams(window.location.search).get("theme");
-    if (["light", "dark"].includes(requestedTheme)) return requestedTheme;
+  function makeEmptyTopicStore() {
+    return {
+      games: [],
+      mistakes: {},
+      totals: {
+        answered: 0,
+        correct: 0,
+      },
+    };
+  }
 
+  function normalizeTopicStore(topicStore) {
+    if (!topicStore || typeof topicStore !== "object") return makeEmptyTopicStore();
+    return {
+      games: Array.isArray(topicStore.games) ? topicStore.games : [],
+      mistakes:
+        topicStore.mistakes && typeof topicStore.mistakes === "object"
+          ? topicStore.mistakes
+          : {},
+      totals: {
+        answered: Number(topicStore.totals?.answered || 0),
+        correct: Number(topicStore.totals?.correct || 0),
+      },
+    };
+  }
+
+  function loadSelectedTopic() {
     try {
-      const saved = localStorage.getItem(THEME_KEY);
-      return ["light", "dark"].includes(saved) ? saved : "light";
+      const saved = localStorage.getItem(TOPIC_KEY);
+      return TOPICS[saved] ? saved : "timing";
     } catch {
-      return "light";
+      return "timing";
     }
   }
 
-  function applyTheme(theme, shouldSave = true) {
-    const selectedTheme = ["light", "dark"].includes(theme) ? theme : "light";
-    document.documentElement.dataset.theme = selectedTheme;
-
-    elements.themeRadios.forEach((radio) => {
-      const isSelected = radio.value === selectedTheme;
-      radio.checked = isSelected;
-      radio.closest(".theme-option").classList.toggle("is-selected", isSelected);
-    });
-
-    if (!shouldSave) return;
+  function saveSelectedTopic() {
     try {
-      localStorage.setItem(THEME_KEY, selectedTheme);
+      localStorage.setItem(TOPIC_KEY, selectedTopicId);
     } catch {
-      // Theme changes still apply for the active page when persistent storage is blocked.
+      // Topic selection still applies for the active page when storage is blocked.
     }
   }
 
@@ -159,6 +251,14 @@
     if (viewId === "scores") renderScores();
     if (viewId === "dashboard") renderDashboard();
     if (viewId === "game" && !quiz) renderIdleGame();
+  }
+
+  function updateTopicSelection() {
+    elements.topicRadios.forEach((radio) => {
+      const isSelected = radio.value === selectedTopicId;
+      radio.checked = isSelected;
+      radio.closest(".topic-option").classList.toggle("is-selected", isSelected);
+    });
   }
 
   function updateModeSelection() {
@@ -177,36 +277,40 @@
   }
 
   function startRandomGame() {
-    if (!DRUGS.length) return;
-    const count = normalizeRandomCount(elements.randomCount.value);
+    const topic = getActiveTopic();
+    if (!topic.data.length) return;
+    const count = normalizeRandomCount(elements.randomCount.value, topic.data.length);
     elements.randomCount.value = String(count);
-    const questions = shuffle(DRUGS).slice(0, count);
-    beginQuiz(questions, "تصادفی", "random");
+    const questions = shuffle(topic.data).slice(0, count);
+    beginQuiz(questions, `${topic.label} | تصادفی`, "random", topic.id);
   }
 
   function startAllGame() {
-    if (!DRUGS.length) return;
-    beginQuiz([...DRUGS], "همه ی داروها", "all");
+    const topic = getActiveTopic();
+    if (!topic.data.length) return;
+    beginQuiz([...topic.data], `${topic.label} | همه سؤال‌ها`, "all", topic.id);
   }
 
   function startMistakePractice() {
-    const mistakes = getMistakeItems();
+    const topic = getActiveTopic();
+    const mistakes = getMistakeItems(topic.id);
     if (!mistakes.length) {
       navigate("mistakes");
       return;
     }
 
     const questions = mistakes
-      .map((item) => drugById.get(item.drugId))
+      .map((item) => topicDrugMaps[topic.id].get(item.drugId))
       .filter(Boolean);
-    beginQuiz(questions, "تمرین خطاها", "mistakes");
+    beginQuiz(questions, `${topic.label} | تمرین خطاها`, "mistakes", topic.id);
   }
 
-  function beginQuiz(questions, label, mode) {
+  function beginQuiz(questions, label, mode, topicId) {
     quiz = {
       questions,
       label,
       mode,
+      topicId,
       index: 0,
       score: 0,
       correct: 0,
@@ -222,20 +326,21 @@
   }
 
   function renderIdleGame() {
-    elements.gameModeLabel.textContent = "بازی";
+    const topic = getActiveTopic();
+    elements.gameModeLabel.textContent = topic.label;
     elements.progress.textContent = "0/0";
     elements.score.textContent = "0";
     elements.correct.textContent = "0";
     elements.streak.textContent = "0";
     elements.progressBar.style.width = "0%";
     elements.dosageForm.textContent = "آماده شروع";
-    elements.questionText.textContent = "یک مدل بازی از داشبورد انتخاب کنید.";
-    elements.questionSubtitle.textContent = "";
+    elements.questionText.textContent = "یک موضوع و مدل بازی از داشبورد انتخاب کنید.";
+    elements.questionSubtitle.textContent = topic.detail;
     clearChildren(elements.options);
     elements.feedback.hidden = true;
 
     const randomButton = makeActionButton("شروع تصادفی", "primary-action", startRandomGame);
-    const allButton = makeActionButton("کل داروها", "secondary-action", startAllGame);
+    const allButton = makeActionButton("کل سؤال‌های موضوع", "secondary-action", startAllGame);
     elements.options.append(randomButton, allButton);
   }
 
@@ -245,6 +350,7 @@
       return;
     }
 
+    const topic = getTopic(quiz.topicId);
     const drug = quiz.questions[quiz.index];
     quiz.currentAnswered = false;
     elements.gameModeLabel.textContent = quiz.label;
@@ -253,13 +359,13 @@
     elements.correct.textContent = formatNumber(quiz.correct);
     elements.streak.textContent = formatNumber(quiz.streak);
     elements.progressBar.style.width = `${Math.round((quiz.index / quiz.questions.length) * 100)}%`;
-    elements.dosageForm.textContent = drug.dosageForm || "فرم دارویی ثبت نشده";
-    elements.questionText.innerHTML = `داروی <span class="drug-name">${escapeHtml(drug.name)}</span> چه زمانی نسبت به غذا مصرف می‌شود؟`;
-    elements.questionSubtitle.textContent = drug.pname ? `نام فارسی: ${drug.pname}` : "";
+    elements.dosageForm.textContent = topic.getChip(drug);
+    elements.questionText.innerHTML = topic.getQuestionHtml(drug);
+    elements.questionSubtitle.textContent = topic.getSubtitleText(drug);
     elements.feedback.hidden = true;
     clearChildren(elements.options);
 
-    buildOptions(drug).forEach((option) => {
+    buildOptions(drug, topic).forEach((option) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "option-button";
@@ -272,8 +378,9 @@
   function answerQuestion(selected, button) {
     if (!quiz || quiz.currentAnswered) return;
 
+    const topic = getTopic(quiz.topicId);
     const drug = quiz.questions[quiz.index];
-    const correctAnswer = drug.consumptionTimeSorted;
+    const correctAnswer = topic.getAnswer(drug);
     const isCorrect = selected === correctAnswer;
     quiz.currentAnswered = true;
 
@@ -292,27 +399,29 @@
     } else {
       quiz.streak = 0;
       button.classList.add("is-wrong");
-      recordMistake(drug, selected);
+      recordMistake(topic, drug, selected);
       elements.feedbackStatus.textContent = "اشتباه";
       elements.feedbackStatus.className = "feedback-status wrong";
     }
 
     quiz.answers.push({
       drugId: drug.id,
+      topicId: topic.id,
       selected,
       correctAnswer,
       isCorrect,
     });
 
-    store.totals.answered += 1;
-    if (isCorrect) store.totals.correct += 1;
+    const topicStore = getTopicStore(topic.id);
+    topicStore.totals.answered += 1;
+    if (isCorrect) topicStore.totals.correct += 1;
     saveStore();
 
     elements.score.textContent = formatNumber(quiz.score);
     elements.correct.textContent = formatNumber(quiz.correct);
     elements.streak.textContent = formatNumber(quiz.streak);
     elements.progressBar.style.width = `${Math.round(((quiz.index + 1) / quiz.questions.length) * 100)}%`;
-    elements.feedbackNote.textContent = drug.consumptionTime || `پاسخ صحیح: ${correctAnswer}`;
+    elements.feedbackNote.textContent = topic.getFeedback(drug);
     elements.nextQuestion.textContent =
       quiz.index + 1 >= quiz.questions.length ? "مشاهده نتیجه" : "سؤال بعدی";
     elements.feedback.hidden = false;
@@ -345,11 +454,15 @@
   function finishGame() {
     if (!quiz) return;
 
+    const topic = getTopic(quiz.topicId);
+    const topicStore = getTopicStore(topic.id);
     const answered = quiz.answers.length;
     const wrong = answered - quiz.correct;
     const percent = answered ? Math.round((quiz.correct / answered) * 100) : 0;
     const record = {
       id: makeId(),
+      topicId: topic.id,
+      topicLabel: topic.label,
       mode: quiz.mode,
       label: quiz.label,
       total: quiz.questions.length,
@@ -363,8 +476,8 @@
     };
 
     if (!quiz.saved && answered > 0) {
-      store.games.unshift(record);
-      store.games = store.games.slice(0, 60);
+      topicStore.games.unshift(record);
+      topicStore.games = topicStore.games.slice(0, 60);
       quiz.saved = true;
       saveStore();
     }
@@ -396,28 +509,33 @@
     quiz = null;
   }
 
-  function buildOptions(drug) {
-    const correctAnswer = drug.consumptionTimeSorted;
-    const distractors = shuffle(OPTION_POOL.filter((option) => option !== correctAnswer)).slice(0, 3);
+  function buildOptions(drug, topic) {
+    const correctAnswer = topic.getAnswer(drug);
+    const distractors = shuffle(optionPools[topic.id].filter((option) => option !== correctAnswer)).slice(0, 3);
     return shuffle([correctAnswer, ...distractors]).slice(0, 4);
   }
 
-  function recordMistake(drug, selected) {
-    const previous = store.mistakes[drug.id] || {
+  function recordMistake(topic, drug, selected) {
+    const topicStore = getTopicStore(topic.id);
+    const previous = topicStore.mistakes[drug.id] || {
       drugId: drug.id,
-      name: drug.name,
-      pname: drug.pname,
-      correctAnswer: drug.consumptionTimeSorted,
+      topicId: topic.id,
+      name: topic.getName(drug),
+      subtitle: topic.getSubtitle(drug),
+      correctAnswer: topic.getAnswer(drug),
+      feedback: topic.getFeedback(drug),
       wrongCount: 0,
       lastWrongAnswer: "",
       lastAt: "",
     };
 
-    store.mistakes[drug.id] = {
+    topicStore.mistakes[drug.id] = {
       ...previous,
-      name: drug.name,
-      pname: drug.pname,
-      correctAnswer: drug.consumptionTimeSorted,
+      topicId: topic.id,
+      name: topic.getName(drug),
+      subtitle: topic.getSubtitle(drug),
+      correctAnswer: topic.getAnswer(drug),
+      feedback: topic.getFeedback(drug),
       wrongCount: previous.wrongCount + 1,
       lastWrongAnswer: selected,
       lastAt: new Date().toISOString(),
@@ -425,15 +543,17 @@
   }
 
   function renderDashboard() {
-    const bestScore = store.games.reduce((best, game) => Math.max(best, game.score || 0), 0);
-    const accuracy = store.totals.answered
-      ? Math.round((store.totals.correct / store.totals.answered) * 100)
+    const topic = getActiveTopic();
+    const topicStore = getTopicStore(topic.id);
+    const bestScore = topicStore.games.reduce((best, game) => Math.max(best, game.score || 0), 0);
+    const accuracy = topicStore.totals.answered
+      ? Math.round((topicStore.totals.correct / topicStore.totals.answered) * 100)
       : 0;
 
-    setMetric("totalDrugs", formatNumber(DRUGS.length));
+    setMetric("totalDrugs", formatNumber(topic.data.length));
     setMetric("bestScore", formatNumber(bestScore));
     setMetric("accuracy", `${formatNumber(accuracy)}٪`);
-    setMetric("mistakeCount", formatNumber(getMistakeItems().length));
+    setMetric("mistakeCount", formatNumber(getMistakeItems(topic.id).length));
 
     renderRecentGames();
     renderTopMistakes();
@@ -441,10 +561,11 @@
 
   function renderRecentGames() {
     clearChildren(elements.recentGames);
-    const games = store.games.slice(0, 5);
+    const topic = getActiveTopic();
+    const games = getTopicStore(topic.id).games.slice(0, 5);
 
     if (!games.length) {
-      elements.recentGames.append(emptyState("هنوز امتیازی ذخیره نشده است."));
+      elements.recentGames.append(emptyState(`هنوز امتیازی برای ${topic.label} ذخیره نشده است.`));
       return;
     }
 
@@ -467,10 +588,11 @@
 
   function renderTopMistakes() {
     clearChildren(elements.topMistakes);
-    const mistakes = getMistakeItems().slice(0, 5);
+    const topic = getActiveTopic();
+    const mistakes = getMistakeItems(topic.id).slice(0, 5);
 
     if (!mistakes.length) {
-      elements.topMistakes.append(emptyState("بانک خطاها خالی است."));
+      elements.topMistakes.append(emptyState(`بانک خطاهای ${topic.label} خالی است.`));
       return;
     }
 
@@ -479,7 +601,7 @@
       row.className = "mini-row";
       const copy = document.createElement("div");
       const title = document.createElement("strong");
-      title.textContent = `${mistake.name} ${mistake.pname ? `- ${mistake.pname}` : ""}`;
+      title.textContent = `${mistake.name} ${mistake.subtitle ? `- ${mistake.subtitle}` : ""}`;
       const detail = document.createElement("small");
       detail.textContent = `پاسخ صحیح: ${mistake.correctAnswer}`;
       copy.append(title, detail);
@@ -493,23 +615,24 @@
 
   function renderMistakes() {
     clearChildren(elements.mistakeBoard);
-    const mistakes = getMistakeItems();
+    const topic = getActiveTopic();
+    const mistakes = getMistakeItems(topic.id);
 
     if (!mistakes.length) {
-      elements.mistakeBoard.append(emptyState("هنوز پاسخ اشتباهی ثبت نشده است."));
+      elements.mistakeBoard.append(emptyState(`هنوز پاسخ اشتباهی برای ${topic.label} ثبت نشده است.`));
       return;
     }
 
     mistakes.forEach((mistake) => {
-      const drug = drugById.get(mistake.drugId);
+      const drug = topicDrugMaps[topic.id].get(mistake.drugId);
       const row = document.createElement("article");
       row.className = "mistake-row";
 
       const copy = document.createElement("div");
       const title = document.createElement("h3");
-      title.textContent = `${mistake.name}${mistake.pname ? ` | ${mistake.pname}` : ""}`;
+      title.textContent = `${mistake.name}${mistake.subtitle ? ` | ${mistake.subtitle}` : ""}`;
       const description = document.createElement("p");
-      description.textContent = drug?.consumptionTime || `پاسخ صحیح: ${mistake.correctAnswer}`;
+      description.textContent = drug ? topic.getFeedback(drug) : mistake.feedback || `پاسخ صحیح: ${mistake.correctAnswer}`;
 
       const tags = document.createElement("div");
       tags.className = "meta-tags";
@@ -534,13 +657,15 @@
 
   function renderScores() {
     clearChildren(elements.scoreBoard);
+    const topic = getActiveTopic();
+    const games = getTopicStore(topic.id).games;
 
-    if (!store.games.length) {
-      elements.scoreBoard.append(emptyState("هنوز بازی ثبت نشده است."));
+    if (!games.length) {
+      elements.scoreBoard.append(emptyState(`هنوز بازی برای ${topic.label} ثبت نشده است.`));
       return;
     }
 
-    store.games.forEach((game) => {
+    games.forEach((game) => {
       const row = document.createElement("article");
       row.className = "score-row";
 
@@ -552,6 +677,7 @@
       const tags = document.createElement("div");
       tags.className = "meta-tags";
       tags.append(
+        makeTag(game.topicLabel || topic.label, ""),
         makeTag(`${formatNumber(game.correct)}/${formatNumber(game.answered)} درست`, "correct"),
         makeTag(`${formatNumber(game.wrong)} اشتباه`, game.wrong ? "wrong" : "correct"),
         makeTag(`${formatNumber(game.percent)}٪ دقت`, "")
@@ -570,21 +696,24 @@
   }
 
   function resetScores() {
-    if (!store.games.length && !store.totals.answered) return;
-    const accepted = window.confirm("همه‌ی امتیازهای ذخیره‌شده پاک شوند؟");
+    const topic = getActiveTopic();
+    const topicStore = getTopicStore(topic.id);
+    if (!topicStore.games.length && !topicStore.totals.answered) return;
+    const accepted = window.confirm(`همه‌ی امتیازهای ذخیره‌شده برای ${topic.label} پاک شوند؟`);
     if (!accepted) return;
-    store.games = [];
-    store.totals = { answered: 0, correct: 0 };
+    topicStore.games = [];
+    topicStore.totals = { answered: 0, correct: 0 };
     saveStore();
     renderDashboard();
     renderScores();
   }
 
   function resetMistakes() {
-    if (!getMistakeItems().length) return;
-    const accepted = window.confirm("همه‌ی خطاهای ذخیره‌شده پاک شوند؟");
+    const topic = getActiveTopic();
+    if (!getMistakeItems(topic.id).length) return;
+    const accepted = window.confirm(`همه‌ی خطاهای ذخیره‌شده برای ${topic.label} پاک شوند؟`);
     if (!accepted) return;
-    store.mistakes = {};
+    getTopicStore(topic.id).mistakes = {};
     saveStore();
     renderDashboard();
     renderMistakes();
@@ -593,10 +722,19 @@
   function exportReport() {
     const report = {
       exportedAt: new Date().toISOString(),
-      totalDrugs: DRUGS.length,
-      scores: store.games,
-      mistakes: getMistakeItems(),
-      totals: store.totals,
+      activeTopic: selectedTopicId,
+      topics: Object.fromEntries(
+        TOPIC_IDS.map((topicId) => [
+          topicId,
+          {
+            label: TOPICS[topicId].label,
+            totalDrugs: TOPICS[topicId].data.length,
+            scores: getTopicStore(topicId).games,
+            mistakes: getMistakeItems(topicId),
+            totals: getTopicStore(topicId).totals,
+          },
+        ])
+      ),
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -609,8 +747,8 @@
     URL.revokeObjectURL(url);
   }
 
-  function getMistakeItems() {
-    return Object.values(store.mistakes)
+  function getMistakeItems(topicId = selectedTopicId) {
+    return Object.values(getTopicStore(topicId).mistakes)
       .filter((item) => item && item.drugId)
       .sort((a, b) => {
         if ((b.wrongCount || 0) !== (a.wrongCount || 0)) {
@@ -618,6 +756,20 @@
         }
         return String(b.lastAt || "").localeCompare(String(a.lastAt || ""));
       });
+  }
+
+  function getActiveTopic() {
+    return getTopic(selectedTopicId);
+  }
+
+  function getTopic(topicId) {
+    return TOPICS[topicId] || TOPICS.timing;
+  }
+
+  function getTopicStore(topicId = selectedTopicId) {
+    const safeTopicId = getTopic(topicId).id;
+    if (!store.topics[safeTopicId]) store.topics[safeTopicId] = makeEmptyTopicStore();
+    return store.topics[safeTopicId];
   }
 
   function makeSummaryTile(label, value) {
@@ -677,10 +829,10 @@
     return Math.max(min, Math.min(max, Math.round(value)));
   }
 
-  function normalizeRandomCount(value) {
+  function normalizeRandomCount(value, maxCount) {
     const raw = Number(value || 20);
     const rounded = Math.round(raw / 10) * 10;
-    return clamp(rounded, 10, Math.min(100, DRUGS.length || 10));
+    return clamp(rounded, 10, Math.min(100, maxCount || 10));
   }
 
   function formatNumber(value) {

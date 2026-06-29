@@ -1,10 +1,11 @@
-const CACHE_NAME = "baghaza-bi-ghaza-v2";
+const CACHE_NAME = "baghaza-bi-ghaza-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./drugs-data.js",
+  "./drug-topics-data.js",
   "./manifest.webmanifest",
   "./assets/pharma-visual.svg",
   "./assets/app-icon-192.png",

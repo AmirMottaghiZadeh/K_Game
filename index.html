@@ -43,9 +43,6 @@
       <symbol id="icon-export" viewBox="0 0 24 24">
         <path d="M12 3 7 8h3v7h4V8h3l-5-5ZM5 18h14v2H5v-2Z" />
       </symbol>
-      <symbol id="icon-settings" viewBox="0 0 24 24">
-        <path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.4 2.9A7.6 7.6 0 0 0 7 6.4l-2.5-1-2 3.5 2.1 1.6c-.1.5-.1 1-.1 1.5s0 1 .1 1.5l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 2.6 1.5L10 22h4l.4-2.9a7.6 7.6 0 0 0 2.6-1.5l2.5 1 2-3.5-2.1-1.6ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
-      </symbol>
     </svg>
 
     <div class="app-shell">
@@ -75,10 +72,6 @@
             <svg><use href="#icon-score" /></svg>
             <span>امتیازها</span>
           </button>
-          <button class="nav-button" type="button" data-nav="settings">
-            <svg><use href="#icon-settings" /></svg>
-            <span>تنظیمات</span>
-          </button>
         </nav>
       </header>
 
@@ -86,16 +79,16 @@
         <section id="dashboard" class="view is-active" aria-labelledby="dashboard-title">
           <div class="overview-band">
             <div class="overview-copy">
-              <p class="eyebrow">Pharmaceutical Timing Lab</p>
-              <h1 id="dashboard-title">تمرین زمان مصرف دارو نسبت به غذا</h1>
+              <p class="eyebrow">Pharmaceutical Quiz Lab</p>
+              <h1 id="dashboard-title">تمرین جامع شناخت داروها</h1>
               <div class="hero-actions">
                 <button class="primary-action" type="button" data-start-random>
                   <svg><use href="#icon-play" /></svg>
-                  شروع تصادفی
+                  شروع تصادفی موضوع
                 </button>
                 <button class="secondary-action" type="button" data-start-all>
                   <svg><use href="#icon-list" /></svg>
-                  کل داروها
+                  کل سؤال‌های موضوع
                 </button>
               </div>
             </div>
@@ -104,7 +97,7 @@
 
           <div class="metric-grid" aria-label="آمار کلی">
             <article class="metric-card">
-              <span>کل داروها</span>
+              <span>داروهای موضوع</span>
               <strong data-metric="totalDrugs">0</strong>
             </article>
             <article class="metric-card">
@@ -122,41 +115,80 @@
           </div>
 
           <div class="dashboard-grid">
-            <section class="panel start-panel" aria-labelledby="mode-title">
-              <div class="panel-heading">
-                <h2 id="mode-title">انتخاب مدل بازی</h2>
+            <section class="panel start-panel" aria-labelledby="topic-title">
+              <div class="choice-block">
+                <div class="panel-heading">
+                  <h2 id="topic-title">انتخاب موضوع</h2>
+                </div>
+
+                <div class="topic-list">
+                  <label class="topic-option is-selected" for="topic-timing">
+                    <input id="topic-timing" name="question-topic" type="radio" value="timing" checked />
+                    <span>
+                      <strong>با غذا / بی غذا</strong>
+                      <small>زمان مصرف دارو نسبت به غذا</small>
+                    </span>
+                  </label>
+                  <label class="topic-option" for="topic-indication">
+                    <input id="topic-indication" name="question-topic" type="radio" value="indication" />
+                    <span>
+                      <strong>اندیکاسیون</strong>
+                      <small>کاربرد یا مورد مصرف دارو</small>
+                    </span>
+                  </label>
+                  <label class="topic-option" for="topic-brand-generic">
+                    <input id="topic-brand-generic" name="question-topic" type="radio" value="brandGeneric" />
+                    <span>
+                      <strong>نام تجاری / ژنریک</strong>
+                      <small>تشخیص نام ژنریک از روی برند</small>
+                    </span>
+                  </label>
+                  <label class="topic-option" for="topic-side-effects">
+                    <input id="topic-side-effects" name="question-topic" type="radio" value="sideEffects" />
+                    <span>
+                      <strong>عوارض جانبی</strong>
+                      <small>عوارض مهم دارو</small>
+                    </span>
+                  </label>
+                </div>
               </div>
 
-              <div class="mode-list">
-                <label class="mode-option is-selected" for="mode-random">
-                  <input id="mode-random" name="game-mode" type="radio" value="random" checked />
-                  <span>
-                    <strong>تصادفی</strong>
-                    <small>نمونه‌گیری از همه ی داروها</small>
-                  </span>
-                </label>
-                <div class="mode-subcontrol">
-                  <label for="random-count">تعداد سؤال</label>
-                  <select id="random-count" aria-label="تعداد سؤال تصادفی">
-                    <option value="10">10</option>
-                    <option value="20" selected>20</option>
-                    <option value="30">30</option>
-                    <option value="40">40</option>
-                    <option value="50">50</option>
-                    <option value="60">60</option>
-                    <option value="70">70</option>
-                    <option value="80">80</option>
-                    <option value="90">90</option>
-                    <option value="100">100</option>
-                  </select>
+              <div class="choice-block">
+                <div class="panel-heading">
+                  <h2 id="mode-title">انتخاب مدل بازی</h2>
                 </div>
-                <label class="mode-option" for="mode-all">
-                  <input id="mode-all" name="game-mode" type="radio" value="all" />
-                  <span>
-                    <strong>همه ی داروها</strong>
-                    <small>از Acetaminophen تا Zolpidem</small>
-                  </span>
-                </label>
+
+                <div class="mode-list">
+                  <label class="mode-option is-selected" for="mode-random">
+                    <input id="mode-random" name="game-mode" type="radio" value="random" checked />
+                    <span>
+                      <strong>تصادفی</strong>
+                      <small>نمونه‌گیری از موضوع انتخاب‌شده</small>
+                    </span>
+                  </label>
+                  <div class="mode-subcontrol">
+                    <label for="random-count">تعداد سؤال</label>
+                    <select id="random-count" aria-label="تعداد سؤال تصادفی">
+                      <option value="10">10</option>
+                      <option value="20" selected>20</option>
+                      <option value="30">30</option>
+                      <option value="40">40</option>
+                      <option value="50">50</option>
+                      <option value="60">60</option>
+                      <option value="70">70</option>
+                      <option value="80">80</option>
+                      <option value="90">90</option>
+                      <option value="100">100</option>
+                    </select>
+                  </div>
+                  <label class="mode-option" for="mode-all">
+                    <input id="mode-all" name="game-mode" type="radio" value="all" />
+                    <span>
+                      <strong>همه ی سؤال‌ها</strong>
+                      <small>تمام داروهای موضوع انتخاب‌شده</small>
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <button class="primary-action full-width" type="button" data-start-selected>
@@ -191,7 +223,7 @@
           <div class="game-topline">
             <div>
               <p class="eyebrow" data-game-mode-label>بازی</p>
-              <h1 id="game-title">سؤال زمان مصرف</h1>
+              <h1 id="game-title" hidden>بازی</h1>
             </div>
             <button class="secondary-action" type="button" data-end-game>
               پایان
@@ -266,36 +298,6 @@
           <div class="score-board" data-score-board></div>
         </section>
 
-        <section id="settings" class="view" aria-labelledby="settings-title">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Settings</p>
-              <h1 id="settings-title">تنظیمات</h1>
-            </div>
-          </div>
-
-          <section class="panel settings-panel" aria-labelledby="theme-title">
-            <div class="panel-heading">
-              <h2 id="theme-title">تم بازی</h2>
-            </div>
-            <div class="theme-options" role="radiogroup" aria-label="انتخاب تم">
-              <label class="theme-option" for="theme-light">
-                <input id="theme-light" name="theme-mode" type="radio" value="light" />
-                <span>
-                  <strong>Light</strong>
-                  <small>پس‌زمینه روشن و کنتراست پزشکی ملایم</small>
-                </span>
-              </label>
-              <label class="theme-option" for="theme-dark">
-                <input id="theme-dark" name="theme-mode" type="radio" value="dark" />
-                <span>
-                  <strong>Dark</strong>
-                  <small>پس‌زمینه تاریک برای استفاده طولانی</small>
-                </span>
-              </label>
-            </div>
-          </section>
-        </section>
       </main>
 
       <footer class="app-footer">
@@ -304,6 +306,7 @@
     </div>
 
     <script src="drugs-data.js"></script>
+    <script src="drug-topics-data.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
