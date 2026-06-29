@@ -1,4 +1,4 @@
-const CACHE_NAME = "baghaza-bi-ghaza-v1";
+const CACHE_NAME = "baghaza-bi-ghaza-v2";
 const APP_ASSETS = [
   "./",
   "./index.html",
