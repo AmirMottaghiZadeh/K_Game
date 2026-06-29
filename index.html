@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#087b72" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="باغذا/بی غذا" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>باغذا/بی غذا</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/app-icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <svg aria-hidden="true" class="svg-sprite">
+      <symbol id="icon-dashboard" viewBox="0 0 24 24">
+        <path d="M4 13h7V4H4v9Zm0 7h7v-5H4v5Zm9 0h7v-9h-7v9Zm0-16v5h7V4h-7Z" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7L8 5Z" />
+      </symbol>
+      <symbol id="icon-list" viewBox="0 0 24 24">
+        <path d="M5 6h14v2H5V6Zm0 5h14v2H5v-2Zm0 5h14v2H5v-2Z" />
+      </symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24">
+        <path d="M12 3 2 21h20L12 3Zm1 15h-2v-2h2v2Zm0-4h-2V9h2v5Z" />
+      </symbol>
+      <symbol id="icon-score" viewBox="0 0 24 24">
+        <path d="M12 17.3 18.2 21l-1.7-7 5.5-4.7-7.2-.6L12 2 9.2 8.7 2 9.3 7.5 14l-1.7 7 6.2-3.7Z" />
+      </symbol>
+      <symbol id="icon-reset" viewBox="0 0 24 24">
+        <path d="M12 5a7 7 0 1 1-6.3 4H3l4-4 4 4H8.1A5 5 0 1 0 12 7V5Z" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="m9.2 16.2-4-4L3.8 13.6l5.4 5.4L21 7.2 19.6 5.8 9.2 16.2Z" />
+      </symbol>
+      <symbol id="icon-close" viewBox="0 0 24 24">
+        <path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4 6.4 5Z" />
+      </symbol>
+      <symbol id="icon-export" viewBox="0 0 24 24">
+        <path d="M12 3 7 8h3v7h4V8h3l-5-5ZM5 18h14v2H5v-2Z" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.4 2.9A7.6 7.6 0 0 0 7 6.4l-2.5-1-2 3.5 2.1 1.6c-.1.5-.1 1-.1 1.5s0 1 .1 1.5l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 2.6 1.5L10 22h4l.4-2.9a7.6 7.6 0 0 0 2.6-1.5l2.5 1 2-3.5-2.1-1.6ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#dashboard" data-nav="dashboard" aria-label="داشبورد">
+          <span class="brand-mark">Rx</span>
+          <span>
+            <strong>باغذا/بی غذا</strong>
+            <small>Karamozi Drug Game</small>
+          </span>
+        </a>
+
+        <nav class="primary-nav" aria-label="بخش‌های بازی">
+          <button class="nav-button is-active" type="button" data-nav="dashboard">
+            <svg><use href="#icon-dashboard" /></svg>
+            <span>داشبورد</span>
+          </button>
+          <button class="nav-button" type="button" data-nav="game">
+            <svg><use href="#icon-play" /></svg>
+            <span>بازی</span>
+          </button>
+          <button class="nav-button" type="button" data-nav="mistakes">
+            <svg><use href="#icon-alert" /></svg>
+            <span>خطاها</span>
+          </button>
+          <button class="nav-button" type="button" data-nav="scores">
+            <svg><use href="#icon-score" /></svg>
+            <span>امتیازها</span>
+          </button>
+          <button class="nav-button" type="button" data-nav="settings">
+            <svg><use href="#icon-settings" /></svg>
+            <span>تنظیمات</span>
+          </button>
+        </nav>
+      </header>
+
+      <main>
+        <section id="dashboard" class="view is-active" aria-labelledby="dashboard-title">
+          <div class="overview-band">
+            <div class="overview-copy">
+              <p class="eyebrow">Pharmaceutical Timing Lab</p>
+              <h1 id="dashboard-title">تمرین زمان مصرف دارو نسبت به غذا</h1>
+              <div class="hero-actions">
+                <button class="primary-action" type="button" data-start-random>
+                  <svg><use href="#icon-play" /></svg>
+                  شروع تصادفی
+                </button>
+                <button class="secondary-action" type="button" data-start-all>
+                  <svg><use href="#icon-list" /></svg>
+                  کل داروها
+                </button>
+              </div>
+            </div>
+            <img class="overview-visual" src="assets/pharma-visual.svg" alt="" />
+          </div>
+
+          <div class="metric-grid" aria-label="آمار کلی">
+            <article class="metric-card">
+              <span>کل داروها</span>
+              <strong data-metric="totalDrugs">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>بهترین امتیاز</span>
+              <strong data-metric="bestScore">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>دقت کل</span>
+              <strong data-metric="accuracy">0٪</strong>
+            </article>
+            <article class="metric-card">
+              <span>داروی نیازمند مرور</span>
+              <strong data-metric="mistakeCount">0</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel start-panel" aria-labelledby="mode-title">
+              <div class="panel-heading">
+                <h2 id="mode-title">انتخاب مدل بازی</h2>
+              </div>
+
+              <div class="mode-list">
+                <label class="mode-option is-selected" for="mode-random">
+                  <input id="mode-random" name="game-mode" type="radio" value="random" checked />
+                  <span>
+                    <strong>تصادفی</strong>
+                    <small>نمونه‌گیری از همه ی داروها</small>
+                  </span>
+                </label>
+                <div class="mode-subcontrol">
+                  <label for="random-count">تعداد سؤال</label>
+                  <select id="random-count" aria-label="تعداد سؤال تصادفی">
+                    <option value="10">10</option>
+                    <option value="20" selected>20</option>
+                    <option value="30">30</option>
+                    <option value="40">40</option>
+                    <option value="50">50</option>
+                    <option value="60">60</option>
+                    <option value="70">70</option>
+                    <option value="80">80</option>
+                    <option value="90">90</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+                <label class="mode-option" for="mode-all">
+                  <input id="mode-all" name="game-mode" type="radio" value="all" />
+                  <span>
+                    <strong>همه ی داروها</strong>
+                    <small>از Acetaminophen تا Zolpidem</small>
+                  </span>
+                </label>
+              </div>
+
+              <button class="primary-action full-width" type="button" data-start-selected>
+                <svg><use href="#icon-play" /></svg>
+                شروع بازی
+              </button>
+            </section>
+
+            <section class="panel compact-panel" aria-labelledby="recent-title">
+              <div class="panel-heading">
+                <h2 id="recent-title">آخرین بازی‌ها</h2>
+                <button class="icon-button" type="button" data-reset-scores title="پاک کردن امتیازها" aria-label="پاک کردن امتیازها">
+                  <svg><use href="#icon-reset" /></svg>
+                </button>
+              </div>
+              <div class="score-strip" data-recent-games></div>
+            </section>
+
+            <section class="panel compact-panel" aria-labelledby="hot-title">
+              <div class="panel-heading">
+                <h2 id="hot-title">مرور فوری</h2>
+                <button class="icon-button" type="button" data-practice-mistakes title="تمرین خطاها" aria-label="تمرین خطاها">
+                  <svg><use href="#icon-play" /></svg>
+                </button>
+              </div>
+              <div class="mistake-strip" data-top-mistakes></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="game" class="view" aria-labelledby="game-title">
+          <div class="game-topline">
+            <div>
+              <p class="eyebrow" data-game-mode-label>بازی</p>
+              <h1 id="game-title">سؤال زمان مصرف</h1>
+            </div>
+            <button class="secondary-action" type="button" data-end-game>
+              پایان
+            </button>
+          </div>
+
+          <div class="game-metrics" aria-label="وضعیت بازی">
+            <div>
+              <span>پیشرفت</span>
+              <strong data-current-progress>0/0</strong>
+            </div>
+            <div>
+              <span>امتیاز</span>
+              <strong data-current-score>0</strong>
+            </div>
+            <div>
+              <span>پاسخ درست</span>
+              <strong data-current-correct>0</strong>
+            </div>
+            <div>
+              <span>زنجیره</span>
+              <strong data-current-streak>0</strong>
+            </div>
+          </div>
+
+          <div class="progress-track" aria-hidden="true">
+            <span data-progress-bar></span>
+          </div>
+
+          <article class="question-panel">
+            <div class="drug-chip" data-dosage-form></div>
+            <h2 data-question-text>برای شروع یک مدل بازی انتخاب کنید.</h2>
+            <p class="drug-persian" data-question-subtitle></p>
+            <div class="option-grid" data-options></div>
+          </article>
+
+          <section class="feedback-panel" data-feedback hidden>
+            <div class="feedback-status" data-feedback-status></div>
+            <p data-feedback-note></p>
+            <button class="primary-action" type="button" data-next-question>
+              سؤال بعدی
+            </button>
+          </section>
+        </section>
+
+        <section id="mistakes" class="view" aria-labelledby="mistakes-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Error Bank</p>
+              <h1 id="mistakes-title">بانک خطاها</h1>
+            </div>
+            <div class="heading-actions">
+              <button class="secondary-action" type="button" data-export-report>
+                <svg><use href="#icon-export" /></svg>
+                گزارش
+              </button>
+              <button class="secondary-action danger" type="button" data-reset-mistakes>
+                پاک کردن خطاها
+              </button>
+            </div>
+          </div>
+          <div class="mistake-board" data-mistake-board></div>
+        </section>
+
+        <section id="scores" class="view" aria-labelledby="scores-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Score Archive</p>
+              <h1 id="scores-title">امتیازهای ذخیره‌شده</h1>
+            </div>
+          </div>
+          <div class="score-board" data-score-board></div>
+        </section>
+
+        <section id="settings" class="view" aria-labelledby="settings-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Settings</p>
+              <h1 id="settings-title">تنظیمات</h1>
+            </div>
+          </div>
+
+          <section class="panel settings-panel" aria-labelledby="theme-title">
+            <div class="panel-heading">
+              <h2 id="theme-title">تم بازی</h2>
+            </div>
+            <div class="theme-options" role="radiogroup" aria-label="انتخاب تم">
+              <label class="theme-option" for="theme-light">
+                <input id="theme-light" name="theme-mode" type="radio" value="light" />
+                <span>
+                  <strong>Light</strong>
+                  <small>پس‌زمینه روشن و کنتراست پزشکی ملایم</small>
+                </span>
+              </label>
+              <label class="theme-option" for="theme-dark">
+                <input id="theme-dark" name="theme-mode" type="radio" value="dark" />
+                <span>
+                  <strong>Dark</strong>
+                  <small>پس‌زمینه تاریک برای استفاده طولانی</small>
+                </span>
+              </label>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        All right reserved for Amir Mottaghi Zadeh .
+      </footer>
+    </div>
+
+    <script src="drugs-data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

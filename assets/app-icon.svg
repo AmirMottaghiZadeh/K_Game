@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="42" x2="448" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#087b72"/>
+      <stop offset="1" stop-color="#2b7bb9"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="132" y1="184" x2="390" y2="326" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset=".5" stop-color="#ffffff"/>
+      <stop offset=".51" stop-color="#d64b6a"/>
+      <stop offset="1" stop-color="#d64b6a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="178" fill="#f7fbfb" opacity=".12"/>
+  <g transform="rotate(-24 256 256)">
+    <rect x="112" y="206" width="288" height="100" rx="50" fill="url(#pill)" stroke="#ffffff" stroke-width="12"/>
+    <path d="M256 208v96" stroke="#087b72" stroke-width="10" opacity=".45"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round">
+    <path d="M256 148v72"/>
+    <path d="M220 184h72"/>
+  </g>
+  <text x="256" y="384" fill="#ffffff" font-family="Arial, sans-serif" font-size="74" font-weight="800" text-anchor="middle">Rx</text>
+</svg>
