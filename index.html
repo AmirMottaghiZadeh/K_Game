@@ -43,6 +43,9 @@
       <symbol id="icon-export" viewBox="0 0 24 24">
         <path d="M12 3 7 8h3v7h4V8h3l-5-5ZM5 18h14v2H5v-2Z" />
       </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 3a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.8 7.8 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5l.4 3h4l.4-3A8 8 0 0 0 17 17.5l2.4 1 2-3.5-2-1.5ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
+      </symbol>
     </svg>
 
     <div class="app-shell">
@@ -72,6 +75,10 @@
             <svg><use href="#icon-score" /></svg>
             <span>امتیازها</span>
           </button>
+          <button class="nav-button" type="button" data-nav="settings">
+            <svg><use href="#icon-settings" /></svg>
+            <span>تنظیمات</span>
+          </button>
         </nav>
       </header>
 
@@ -79,8 +86,13 @@
         <section id="dashboard" class="view is-active" aria-labelledby="dashboard-title">
           <div class="overview-band">
             <div class="overview-copy">
-              <p class="eyebrow">Pharmaceutical Quiz Lab</p>
-              <h1 id="dashboard-title">تمرین جامع شناخت داروها</h1>
+              <p class="eyebrow">Rx Training</p>
+              <h1 id="dashboard-title">چالش روزانه شناخت داروها</h1>
+              <div class="training-badges" aria-label="وضعیت تمرین">
+                <span>Quiz</span>
+                <span>XP</span>
+                <span>Review</span>
+              </div>
               <div class="hero-actions">
                 <button class="primary-action" type="button" data-start-random>
                   <svg><use href="#icon-play" /></svg>
@@ -235,6 +247,10 @@
               <span>پیشرفت</span>
               <strong data-current-progress>0/0</strong>
             </div>
+            <div class="timer-metric" data-timer-metric>
+              <span>زمان</span>
+              <strong data-current-timer>30</strong>
+            </div>
             <div>
               <span>امتیاز</span>
               <strong data-current-score>0</strong>
@@ -254,7 +270,16 @@
           </div>
 
           <article class="question-panel">
-            <div class="drug-chip" data-dosage-form></div>
+            <div class="question-head">
+              <div class="drug-chip" data-dosage-form></div>
+              <div class="timer-pill" data-timer-state>
+                <span>Time</span>
+                <strong data-question-timer>30</strong>
+              </div>
+            </div>
+            <div class="timer-track" aria-hidden="true">
+              <span data-timer-bar></span>
+            </div>
             <h2 data-question-text>برای شروع یک مدل بازی انتخاب کنید.</h2>
             <p class="drug-persian" data-question-subtitle></p>
             <div class="option-grid" data-options></div>
@@ -296,6 +321,53 @@
             </div>
           </div>
           <div class="score-board" data-score-board></div>
+        </section>
+
+        <section id="settings" class="view" aria-labelledby="settings-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Preferences</p>
+              <h1 id="settings-title">تنظیمات</h1>
+            </div>
+          </div>
+
+          <div class="settings-grid">
+            <section class="panel settings-panel" aria-labelledby="timer-settings-title">
+              <div class="panel-heading">
+                <h2 id="timer-settings-title">تایمر سؤال</h2>
+              </div>
+              <div class="settings-control">
+                <label for="timer-duration">مدت هر سؤال</label>
+                <div class="settings-inline">
+                  <input id="timer-duration" type="number" min="5" max="180" step="5" value="30" inputmode="numeric" data-timer-duration />
+                  <span>ثانیه</span>
+                </div>
+                <input class="range-control" type="range" min="5" max="180" step="5" value="30" aria-label="مدت هر سؤال" data-timer-range />
+              </div>
+            </section>
+
+            <section class="panel settings-panel" aria-labelledby="theme-settings-title">
+              <div class="panel-heading">
+                <h2 id="theme-settings-title">تم برنامه</h2>
+              </div>
+              <div class="theme-options">
+                <label class="theme-option is-selected" for="theme-light">
+                  <input id="theme-light" name="theme-mode" type="radio" value="light" checked />
+                  <span>
+                    <strong>Light</strong>
+                    <small>روشن</small>
+                  </span>
+                </label>
+                <label class="theme-option" for="theme-dark">
+                  <input id="theme-dark" name="theme-mode" type="radio" value="dark" />
+                  <span>
+                    <strong>Dark</strong>
+                    <small>تیره</small>
+                  </span>
+                </label>
+              </div>
+            </section>
+          </div>
         </section>
 
       </main>

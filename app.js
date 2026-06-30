@@ -3,6 +3,15 @@
 
   const STORAGE_KEY = "karamozi-drug-timing-game:v1";
   const TOPIC_KEY = "karamozi-drug-timing-game:topic";
+  const SETTINGS_KEY = "karamozi-drug-timing-game:settings";
+  const DEFAULT_SETTINGS = {
+    timerSeconds: 30,
+    theme: "light",
+  };
+  const MIN_TIMER_SECONDS = 5;
+  const MAX_TIMER_SECONDS = 180;
+  const TIMER_TICK_MS = 250;
+  const TIMEOUT_ANSWER = "پایان زمان";
   const TIMING_DRUGS = Array.isArray(window.DRUGS_DATA)
     ? window.DRUGS_DATA.filter((drug) => drug.name && drug.consumptionTimeSorted)
     : [];
@@ -91,15 +100,20 @@
   });
 
   let selectedTopicId = loadSelectedTopic();
+  let settings = loadSettings();
   let store = loadStore();
   let quiz = null;
+  let timerIntervalId = null;
 
   const elements = {
     views: [...document.querySelectorAll(".view")],
     navButtons: [...document.querySelectorAll("[data-nav]")],
     topicRadios: [...document.querySelectorAll("input[name='question-topic']")],
     modeRadios: [...document.querySelectorAll("input[name='game-mode']")],
+    themeRadios: [...document.querySelectorAll("input[name='theme-mode']")],
     randomCount: document.querySelector("#random-count"),
+    timerDuration: document.querySelector("[data-timer-duration]"),
+    timerRange: document.querySelector("[data-timer-range]"),
     feedback: document.querySelector("[data-feedback]"),
     feedbackStatus: document.querySelector("[data-feedback-status]"),
     feedbackNote: document.querySelector("[data-feedback-note]"),
@@ -112,6 +126,11 @@
     score: document.querySelector("[data-current-score]"),
     correct: document.querySelector("[data-current-correct]"),
     streak: document.querySelector("[data-current-streak]"),
+    currentTimer: document.querySelector("[data-current-timer]"),
+    questionTimer: document.querySelector("[data-question-timer]"),
+    timerBar: document.querySelector("[data-timer-bar]"),
+    timerState: document.querySelector("[data-timer-state]"),
+    timerMetric: document.querySelector("[data-timer-metric]"),
     progressBar: document.querySelector("[data-progress-bar]"),
     gameModeLabel: document.querySelector("[data-game-mode-label]"),
     recentGames: document.querySelector("[data-recent-games]"),
@@ -124,7 +143,8 @@
 
   function init() {
     elements.randomCount.value = "20";
-    document.documentElement.dataset.theme = "light";
+    applyTheme(settings.theme);
+    syncSettingsControls();
 
     elements.navButtons.forEach((button) => {
       button.addEventListener("click", () => navigate(button.dataset.nav));
@@ -146,6 +166,19 @@
       radio.addEventListener("change", updateModeSelection);
     });
 
+    elements.themeRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (!radio.checked) return;
+        settings.theme = radio.value === "dark" ? "dark" : "light";
+        saveSettings();
+        applyTheme(settings.theme);
+        syncSettingsControls();
+      });
+    });
+
+    elements.timerDuration.addEventListener("change", () => updateTimerSetting(elements.timerDuration.value));
+    elements.timerRange.addEventListener("input", () => updateTimerSetting(elements.timerRange.value));
+
     document.querySelector("[data-start-selected]").addEventListener("click", startSelectedMode);
     document.querySelector("[data-start-random]").addEventListener("click", () => startRandomGame());
     document.querySelector("[data-start-all]").addEventListener("click", startAllGame);
@@ -158,6 +191,7 @@
 
     updateTopicSelection();
     updateModeSelection();
+    syncSettingsControls();
     renderDashboard();
     renderIdleGame();
     registerServiceWorker();
@@ -190,6 +224,33 @@
     } catch {
       // Browsers may block localStorage in strict private modes; the game keeps running in memory.
     }
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const parsed = JSON.parse(raw);
+      return normalizeSettings(parsed);
+    } catch {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // Settings still apply for the current session when storage is blocked.
+    }
+  }
+
+  function normalizeSettings(value) {
+    const theme = value?.theme === "dark" ? "dark" : "light";
+    return {
+      timerSeconds: normalizeTimerSeconds(value?.timerSeconds ?? DEFAULT_SETTINGS.timerSeconds),
+      theme,
+    };
   }
 
   function makeEmptyStore() {
@@ -241,6 +302,32 @@
     }
   }
 
+  function applyTheme(theme) {
+    const safeTheme = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = safeTheme;
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (themeColor) themeColor.setAttribute("content", safeTheme === "dark" ? "#08111f" : "#0f766e");
+  }
+
+  function syncSettingsControls() {
+    elements.timerDuration.value = String(settings.timerSeconds);
+    elements.timerRange.value = String(settings.timerSeconds);
+    elements.themeRadios.forEach((radio) => {
+      const isSelected = radio.value === settings.theme;
+      radio.checked = isSelected;
+      radio.closest(".theme-option").classList.toggle("is-selected", isSelected);
+    });
+  }
+
+  function updateTimerSetting(value) {
+    settings.timerSeconds = normalizeTimerSeconds(value);
+    saveSettings();
+    syncSettingsControls();
+    if (!quiz || quiz.currentAnswered) {
+      updateTimerDisplay(settings.timerSeconds, settings.timerSeconds);
+    }
+  }
+
   function navigate(viewId) {
     elements.views.forEach((view) => view.classList.toggle("is-active", view.id === viewId));
     elements.navButtons.forEach((button) => {
@@ -250,6 +337,7 @@
     if (viewId === "mistakes") renderMistakes();
     if (viewId === "scores") renderScores();
     if (viewId === "dashboard") renderDashboard();
+    if (viewId === "settings") syncSettingsControls();
     if (viewId === "game" && !quiz) renderIdleGame();
   }
 
@@ -319,6 +407,9 @@
       saved: false,
       startedAt: Date.now(),
       currentAnswered: false,
+      timerSeconds: settings.timerSeconds,
+      remainingSeconds: settings.timerSeconds,
+      questionEndsAt: 0,
     };
 
     renderQuestion();
@@ -326,12 +417,14 @@
   }
 
   function renderIdleGame() {
+    stopQuestionTimer();
     const topic = getActiveTopic();
     elements.gameModeLabel.textContent = topic.label;
     elements.progress.textContent = "0/0";
     elements.score.textContent = "0";
     elements.correct.textContent = "0";
     elements.streak.textContent = "0";
+    updateTimerDisplay(settings.timerSeconds, settings.timerSeconds);
     elements.progressBar.style.width = "0%";
     elements.dosageForm.textContent = "آماده شروع";
     elements.questionText.textContent = "یک موضوع و مدل بازی از داشبورد انتخاب کنید.";
@@ -353,6 +446,8 @@
     const topic = getTopic(quiz.topicId);
     const drug = quiz.questions[quiz.index];
     quiz.currentAnswered = false;
+    quiz.timerSeconds = settings.timerSeconds;
+    quiz.remainingSeconds = quiz.timerSeconds;
     elements.gameModeLabel.textContent = quiz.label;
     elements.progress.textContent = `${formatNumber(quiz.index + 1)}/${formatNumber(quiz.questions.length)}`;
     elements.score.textContent = formatNumber(quiz.score);
@@ -364,24 +459,30 @@
     elements.questionSubtitle.textContent = topic.getSubtitleText(drug);
     elements.feedback.hidden = true;
     clearChildren(elements.options);
+    updateTimerDisplay(quiz.remainingSeconds, quiz.timerSeconds);
 
-    buildOptions(drug, topic).forEach((option) => {
+    buildOptions(drug, topic).forEach((option, index) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "option-button";
+      button.dataset.choice = ["A", "B", "C", "D"][index] || String(index + 1);
       button.textContent = option;
       button.addEventListener("click", () => answerQuestion(option, button));
       elements.options.append(button);
     });
+
+    startQuestionTimer();
   }
 
-  function answerQuestion(selected, button) {
+  function answerQuestion(selected, button, options = {}) {
     if (!quiz || quiz.currentAnswered) return;
 
+    stopQuestionTimer();
     const topic = getTopic(quiz.topicId);
     const drug = quiz.questions[quiz.index];
     const correctAnswer = topic.getAnswer(drug);
-    const isCorrect = selected === correctAnswer;
+    const isTimedOut = Boolean(options.timedOut);
+    const isCorrect = !isTimedOut && selected === correctAnswer;
     quiz.currentAnswered = true;
 
     [...elements.options.querySelectorAll(".option-button")].forEach((optionButton) => {
@@ -398,9 +499,9 @@
       elements.feedbackStatus.className = "feedback-status correct";
     } else {
       quiz.streak = 0;
-      button.classList.add("is-wrong");
+      if (button) button.classList.add("is-wrong");
       recordMistake(topic, drug, selected);
-      elements.feedbackStatus.textContent = "اشتباه";
+      elements.feedbackStatus.textContent = isTimedOut ? "زمان تمام شد" : "اشتباه";
       elements.feedbackStatus.className = "feedback-status wrong";
     }
 
@@ -421,10 +522,57 @@
     elements.correct.textContent = formatNumber(quiz.correct);
     elements.streak.textContent = formatNumber(quiz.streak);
     elements.progressBar.style.width = `${Math.round(((quiz.index + 1) / quiz.questions.length) * 100)}%`;
-    elements.feedbackNote.textContent = topic.getFeedback(drug);
+    elements.feedbackNote.textContent = isTimedOut
+      ? `پاسخ در زمان تعیین‌شده ثبت نشد. ${topic.getFeedback(drug)}`
+      : topic.getFeedback(drug);
     elements.nextQuestion.textContent =
       quiz.index + 1 >= quiz.questions.length ? "مشاهده نتیجه" : "سؤال بعدی";
     elements.feedback.hidden = false;
+  }
+
+  function startQuestionTimer() {
+    stopQuestionTimer();
+    if (!quiz || quiz.currentAnswered) return;
+    quiz.questionEndsAt = Date.now() + quiz.timerSeconds * 1000;
+    timerIntervalId = window.setInterval(tickQuestionTimer, TIMER_TICK_MS);
+    tickQuestionTimer();
+  }
+
+  function stopQuestionTimer() {
+    if (!timerIntervalId) return;
+    window.clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+
+  function tickQuestionTimer() {
+    if (!quiz || quiz.currentAnswered) {
+      stopQuestionTimer();
+      return;
+    }
+
+    const remainingMs = quiz.questionEndsAt - Date.now();
+    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    quiz.remainingSeconds = remainingSeconds;
+    updateTimerDisplay(remainingSeconds, quiz.timerSeconds);
+
+    if (remainingMs <= 0) {
+      stopQuestionTimer();
+      answerQuestion(TIMEOUT_ANSWER, null, { timedOut: true });
+    }
+  }
+
+  function updateTimerDisplay(remainingSeconds, limitSeconds) {
+    const remaining = clamp(Number(remainingSeconds), 0, MAX_TIMER_SECONDS);
+    const limit = Math.max(1, Number(limitSeconds || settings.timerSeconds || DEFAULT_SETTINGS.timerSeconds));
+    const ratio = Math.max(0, Math.min(1, remaining / limit));
+    const state = ratio <= 0.2 ? "urgent" : ratio <= 0.45 ? "warning" : "ready";
+
+    elements.currentTimer.textContent = formatNumber(remaining);
+    elements.questionTimer.textContent = formatNumber(remaining);
+    elements.timerBar.style.width = `${Math.round(ratio * 100)}%`;
+    elements.timerBar.dataset.timerState = state;
+    elements.timerState.dataset.timerState = state;
+    elements.timerMetric.dataset.timerState = state;
   }
 
   function nextQuestion() {
@@ -454,6 +602,7 @@
   function finishGame() {
     if (!quiz) return;
 
+    stopQuestionTimer();
     const topic = getTopic(quiz.topicId);
     const topicStore = getTopicStore(topic.id);
     const answered = quiz.answers.length;
@@ -487,6 +636,7 @@
     elements.score.textContent = formatNumber(quiz.score);
     elements.correct.textContent = formatNumber(quiz.correct);
     elements.streak.textContent = formatNumber(quiz.streak);
+    updateTimerDisplay(0, settings.timerSeconds);
     elements.progressBar.style.width = "100%";
     elements.dosageForm.textContent = "پایان بازی";
     elements.questionText.textContent = "نتیجه بازی";
@@ -833,6 +983,10 @@
     const raw = Number(value || 20);
     const rounded = Math.round(raw / 10) * 10;
     return clamp(rounded, 10, Math.min(100, maxCount || 10));
+  }
+
+  function normalizeTimerSeconds(value) {
+    return clamp(Number(value || DEFAULT_SETTINGS.timerSeconds), MIN_TIMER_SECONDS, MAX_TIMER_SECONDS);
   }
 
   function formatNumber(value) {
