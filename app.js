@@ -4,6 +4,8 @@
   const STORAGE_KEY = "karamozi-drug-timing-game:v1";
   const TOPIC_KEY = "karamozi-drug-timing-game:topic";
   const SETTINGS_KEY = "karamozi-drug-timing-game:settings";
+  const USERS_KEY = "karamozi-drug-game:users:v1";
+  const ACTIVE_USER_KEY = "karamozi-drug-game:active-user";
   const DEFAULT_SETTINGS = {
     timerSeconds: 30,
     theme: "light",
@@ -11,6 +13,7 @@
   const MIN_TIMER_SECONDS = 5;
   const MAX_TIMER_SECONDS = 180;
   const TIMER_TICK_MS = 250;
+  const LEAGUE_QUESTION_COUNT = 50;
   const TIMEOUT_ANSWER = "پایان زمان";
   const TIMING_DRUGS = Array.isArray(window.DRUGS_DATA)
     ? window.DRUGS_DATA.filter((drug) => drug.name && drug.consumptionTimeSorted)
@@ -101,7 +104,11 @@
 
   let selectedTopicId = loadSelectedTopic();
   let settings = loadSettings();
-  let store = loadStore();
+  let users = loadUsers();
+  let activeUserId = loadActiveUserId();
+  let activeUser = users.find((user) => user.id === activeUserId) || null;
+  if (!activeUser) activeUserId = "";
+  let store = loadCurrentStore();
   let quiz = null;
   let timerIntervalId = null;
 
@@ -111,6 +118,7 @@
     topicRadios: [...document.querySelectorAll("input[name='question-topic']")],
     modeRadios: [...document.querySelectorAll("input[name='game-mode']")],
     themeRadios: [...document.querySelectorAll("input[name='theme-mode']")],
+    leagueButtons: [...document.querySelectorAll("[data-league-topic]")],
     randomCount: document.querySelector("#random-count"),
     timerDuration: document.querySelector("[data-timer-duration]"),
     timerRange: document.querySelector("[data-timer-range]"),
@@ -137,6 +145,24 @@
     topMistakes: document.querySelector("[data-top-mistakes]"),
     mistakeBoard: document.querySelector("[data-mistake-board]"),
     scoreBoard: document.querySelector("[data-score-board]"),
+    loginForm: document.querySelector("[data-login-form]"),
+    signupForm: document.querySelector("[data-signup-form]"),
+    loginUsername: document.querySelector("[data-login-username]"),
+    loginPassword: document.querySelector("[data-login-password]"),
+    signupUsername: document.querySelector("[data-signup-username]"),
+    signupPassword: document.querySelector("[data-signup-password]"),
+    authPanel: document.querySelector("[data-auth-panel]"),
+    profilePanel: document.querySelector("[data-profile-panel]"),
+    accountGrid: document.querySelector(".account-grid"),
+    authStatus: document.querySelector("[data-auth-status]"),
+    logout: document.querySelector("[data-logout]"),
+    userProfile: document.querySelector("[data-user-profile]"),
+    activityBoard: document.querySelector("[data-activity-board]"),
+    currentUser: document.querySelector("[data-current-user]"),
+    accountUser: document.querySelector("[data-account-user]"),
+    leagueUser: document.querySelector("[data-league-user]"),
+    leagueBoard: document.querySelector("[data-league-board]"),
+    leagueHistory: document.querySelector("[data-league-history]"),
   };
 
   init();
@@ -178,6 +204,12 @@
 
     elements.timerDuration.addEventListener("change", () => updateTimerSetting(elements.timerDuration.value));
     elements.timerRange.addEventListener("input", () => updateTimerSetting(elements.timerRange.value));
+    elements.loginForm.addEventListener("submit", handleLogin);
+    elements.signupForm.addEventListener("submit", handleSignup);
+    elements.logout.addEventListener("click", logoutUser);
+    elements.leagueButtons.forEach((button) => {
+      button.addEventListener("click", () => startLeagueGame(button.dataset.leagueTopic));
+    });
 
     document.querySelector("[data-start-selected]").addEventListener("click", startSelectedMode);
     document.querySelector("[data-start-random]").addEventListener("click", () => startRandomGame());
@@ -192,8 +224,11 @@
     updateTopicSelection();
     updateModeSelection();
     syncSettingsControls();
+    updateUserChrome();
     renderDashboard();
     renderIdleGame();
+    renderAccount();
+    renderLeague();
     registerServiceWorker();
   }
 
@@ -202,28 +237,46 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return makeEmptyStore();
       const parsed = JSON.parse(raw);
-      const nextStore = makeEmptyStore();
-
-      if (parsed.topics && typeof parsed.topics === "object") {
-        TOPIC_IDS.forEach((topicId) => {
-          nextStore.topics[topicId] = normalizeTopicStore(parsed.topics[topicId]);
-        });
-        return nextStore;
-      }
-
-      nextStore.topics.timing = normalizeTopicStore(parsed);
-      return nextStore;
+      return normalizeStore(parsed);
     } catch {
       return makeEmptyStore();
     }
   }
 
   function saveStore() {
+    if (activeUser) {
+      activeUser.store = store;
+      activeUser.updatedAt = new Date().toISOString();
+      persistActiveUser();
+      return;
+    }
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
     } catch {
       // Browsers may block localStorage in strict private modes; the game keeps running in memory.
     }
+  }
+
+  function loadCurrentStore() {
+    return activeUser ? normalizeStore(activeUser.store) : loadStore();
+  }
+
+  function normalizeStore(value) {
+    const nextStore = makeEmptyStore();
+
+    if (value?.topics && typeof value.topics === "object") {
+      TOPIC_IDS.forEach((topicId) => {
+        nextStore.topics[topicId] = normalizeTopicStore(value.topics[topicId]);
+      });
+      return nextStore;
+    }
+
+    if (value && typeof value === "object") {
+      nextStore.topics.timing = normalizeTopicStore(value);
+    }
+
+    return nextStore;
   }
 
   function loadSettings() {
@@ -251,6 +304,75 @@
       timerSeconds: normalizeTimerSeconds(value?.timerSeconds ?? DEFAULT_SETTINGS.timerSeconds),
       theme,
     };
+  }
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(USERS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(normalizeUser).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveUsers() {
+    try {
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } catch {
+      // User data remains available in memory until the page is closed.
+    }
+  }
+
+  function loadActiveUserId() {
+    try {
+      return localStorage.getItem(ACTIVE_USER_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function saveActiveUserId() {
+    try {
+      if (activeUser) {
+        localStorage.setItem(ACTIVE_USER_KEY, activeUser.id);
+      } else {
+        localStorage.removeItem(ACTIVE_USER_KEY);
+      }
+    } catch {
+      // The current in-memory session still works if storage is blocked.
+    }
+  }
+
+  function normalizeUser(user) {
+    if (!user || typeof user !== "object") return null;
+    const id = normalizeUsername(user.id || user.username);
+    if (!id || !user.passwordHash || !user.salt) return null;
+    return {
+      id,
+      username: String(user.username || id).trim() || id,
+      salt: String(user.salt),
+      passwordHash: String(user.passwordHash),
+      passwordMethod: user.passwordMethod === "fallback" ? "fallback" : "sha256",
+      createdAt: user.createdAt || new Date().toISOString(),
+      lastLoginAt: user.lastLoginAt || "",
+      updatedAt: user.updatedAt || "",
+      store: normalizeStore(user.store),
+      activities: Array.isArray(user.activities) ? user.activities.slice(0, 160) : [],
+      leagueResults: Array.isArray(user.leagueResults) ? user.leagueResults.slice(0, 120) : [],
+    };
+  }
+
+  function persistActiveUser() {
+    if (!activeUser) return;
+    const index = users.findIndex((user) => user.id === activeUser.id);
+    if (index >= 0) {
+      users[index] = activeUser;
+    } else {
+      users.push(activeUser);
+    }
+    saveUsers();
+    saveActiveUserId();
   }
 
   function makeEmptyStore() {
@@ -328,6 +450,104 @@
     }
   }
 
+  async function handleSignup(event) {
+    event.preventDefault();
+    const username = elements.signupUsername.value.trim();
+    const password = elements.signupPassword.value;
+    const id = normalizeUsername(username);
+
+    if (id.length < 2 || password.length < 4) {
+      setAuthStatus("نام کاربری حداقل ۲ کاراکتر و پسورد حداقل ۴ کاراکتر باشد.", "wrong");
+      return;
+    }
+
+    if (users.some((user) => user.id === id)) {
+      setAuthStatus("این نام کاربری قبلا ساخته شده است.", "wrong");
+      return;
+    }
+
+    const passwordMethod = canUseSecureHash() ? "sha256" : "fallback";
+    const salt = makeSalt();
+    const passwordHash = await makePasswordHash(password, salt, passwordMethod);
+    const now = new Date().toISOString();
+    activeUser = {
+      id,
+      username,
+      salt,
+      passwordHash,
+      passwordMethod,
+      createdAt: now,
+      lastLoginAt: now,
+      updatedAt: now,
+      store: makeEmptyStore(),
+      activities: [],
+      leagueResults: [],
+    };
+    activeUserId = id;
+    store = normalizeStore(activeUser.store);
+    addActivity({ type: "account", label: "ساخت کاربر", detail: activeUser.username }, { persist: false });
+    persistActiveUser();
+    clearAuthForms();
+    setAuthStatus("کاربر ساخته و وارد شد.", "correct");
+    refreshUserViews();
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    const id = normalizeUsername(elements.loginUsername.value);
+    const password = elements.loginPassword.value;
+    const user = users.find((item) => item.id === id);
+
+    if (!user) {
+      setAuthStatus("کاربر پیدا نشد.", "wrong");
+      return;
+    }
+
+    if (user.passwordMethod === "sha256" && !canUseSecureHash()) {
+      setAuthStatus("این مرورگر امکان بررسی امن پسورد این کاربر را ندارد.", "wrong");
+      return;
+    }
+
+    const passwordHash = await makePasswordHash(password, user.salt, user.passwordMethod);
+    if (passwordHash !== user.passwordHash) {
+      setAuthStatus("پسورد درست نیست.", "wrong");
+      return;
+    }
+
+    activeUser = user;
+    activeUserId = user.id;
+    activeUser.lastLoginAt = new Date().toISOString();
+    store = normalizeStore(activeUser.store);
+    addActivity({ type: "account", label: "ورود", detail: activeUser.username }, { persist: false });
+    persistActiveUser();
+    clearAuthForms();
+    setAuthStatus("ورود انجام شد.", "correct");
+    refreshUserViews();
+  }
+
+  function logoutUser() {
+    if (!activeUser) return;
+    stopQuestionTimer();
+    quiz = null;
+    activeUser = null;
+    activeUserId = "";
+    store = loadStore();
+    saveActiveUserId();
+    setAuthStatus("از حساب خارج شدید.", "");
+    refreshUserViews();
+    renderIdleGame();
+    navigate("account");
+  }
+
+  function refreshUserViews() {
+    updateUserChrome();
+    renderDashboard();
+    renderMistakes();
+    renderScores();
+    renderAccount();
+    renderLeague();
+  }
+
   function navigate(viewId) {
     elements.views.forEach((view) => view.classList.toggle("is-active", view.id === viewId));
     elements.navButtons.forEach((button) => {
@@ -338,6 +558,8 @@
     if (viewId === "scores") renderScores();
     if (viewId === "dashboard") renderDashboard();
     if (viewId === "settings") syncSettingsControls();
+    if (viewId === "account") renderAccount();
+    if (viewId === "league") renderLeague();
     if (viewId === "game" && !quiz) renderIdleGame();
   }
 
@@ -393,16 +615,35 @@
     beginQuiz(questions, `${topic.label} | تمرین خطاها`, "mistakes", topic.id);
   }
 
-  function beginQuiz(questions, label, mode, topicId) {
+  function startLeagueGame(topicId) {
+    if (!activeUser) {
+      setAuthStatus("برای شروع لیگ ابتدا وارد حساب کاربری شوید.", "wrong");
+      navigate("account");
+      return;
+    }
+
+    const topic = getTopic(topicId);
+    if (topic.data.length < LEAGUE_QUESTION_COUNT) {
+      window.alert(`${topic.label} برای لیگ ۵۰ سؤال کافی ندارد.`);
+      return;
+    }
+
+    const questions = shuffle(topic.data).slice(0, LEAGUE_QUESTION_COUNT);
+    beginQuiz(questions, `${topic.label} | لیگ ۵۰ سؤالی`, "league", topic.id, { isLeague: true });
+  }
+
+  function beginQuiz(questions, label, mode, topicId, options = {}) {
     quiz = {
       questions,
       label,
       mode,
       topicId,
+      isLeague: Boolean(options.isLeague),
       index: 0,
       score: 0,
       correct: 0,
       streak: 0,
+      timeRemainingTotal: 0,
       answers: [],
       saved: false,
       startedAt: Date.now(),
@@ -477,13 +718,15 @@
   function answerQuestion(selected, button, options = {}) {
     if (!quiz || quiz.currentAnswered) return;
 
+    const isTimedOut = Boolean(options.timedOut);
+    const remainingAtAnswer = isTimedOut ? 0 : getCurrentRemainingSeconds();
     stopQuestionTimer();
     const topic = getTopic(quiz.topicId);
     const drug = quiz.questions[quiz.index];
     const correctAnswer = topic.getAnswer(drug);
-    const isTimedOut = Boolean(options.timedOut);
     const isCorrect = !isTimedOut && selected === correctAnswer;
     quiz.currentAnswered = true;
+    quiz.remainingSeconds = remainingAtAnswer;
 
     [...elements.options.querySelectorAll(".option-button")].forEach((optionButton) => {
       optionButton.disabled = true;
@@ -495,6 +738,7 @@
       quiz.streak += 1;
       quiz.correct += 1;
       quiz.score += 10 + streakBonus;
+      if (quiz.isLeague) quiz.timeRemainingTotal += remainingAtAnswer;
       elements.feedbackStatus.textContent = `درست +${formatNumber(10 + streakBonus)}`;
       elements.feedbackStatus.className = "feedback-status correct";
     } else {
@@ -511,6 +755,7 @@
       selected,
       correctAnswer,
       isCorrect,
+      remainingSeconds: remainingAtAnswer,
     });
 
     const topicStore = getTopicStore(topic.id);
@@ -561,6 +806,11 @@
     }
   }
 
+  function getCurrentRemainingSeconds() {
+    if (!quiz?.questionEndsAt) return 0;
+    return Math.max(0, Math.ceil((quiz.questionEndsAt - Date.now()) / 1000));
+  }
+
   function updateTimerDisplay(remainingSeconds, limitSeconds) {
     const remaining = clamp(Number(remainingSeconds), 0, MAX_TIMER_SECONDS);
     const limit = Math.max(1, Number(limitSeconds || settings.timerSeconds || DEFAULT_SETTINGS.timerSeconds));
@@ -608,6 +858,10 @@
     const answered = quiz.answers.length;
     const wrong = answered - quiz.correct;
     const percent = answered ? Math.round((quiz.correct / answered) * 100) : 0;
+    const isLeague = quiz.isLeague;
+    const leagueScore = isLeague ? roundMetric(quiz.score / LEAGUE_QUESTION_COUNT) : 0;
+    const timeBonus = isLeague ? roundMetric(quiz.timeRemainingTotal / LEAGUE_QUESTION_COUNT) : 0;
+    const leagueRating = isLeague ? roundMetric(leagueScore + timeBonus) : 0;
     const record = {
       id: makeId(),
       topicId: topic.id,
@@ -622,13 +876,34 @@
       percent,
       endedAt: new Date().toISOString(),
       durationSeconds: Math.max(1, Math.round((Date.now() - quiz.startedAt) / 1000)),
+      isLeague,
+      scorePerQuestion: leagueScore,
+      timeRemainingTotal: quiz.timeRemainingTotal,
+      timeBonus,
+      leagueRating,
     };
 
-    if (!quiz.saved && answered > 0) {
+    if (!quiz.saved && answered > 0 && !isLeague) {
       topicStore.games.unshift(record);
       topicStore.games = topicStore.games.slice(0, 60);
       quiz.saved = true;
       saveStore();
+    }
+
+    if (!quiz.saved && answered > 0 && isLeague) {
+      saveLeagueResult(record);
+      quiz.saved = true;
+    }
+
+    if (answered > 0 && !isLeague) {
+      addActivity({
+        type: "practice",
+        label: record.label,
+        topicLabel: topic.label,
+        score: record.score,
+        percent: record.percent,
+        endedAt: record.endedAt,
+      });
     }
 
     elements.gameModeLabel.textContent = "نتیجه";
@@ -640,22 +915,40 @@
     elements.progressBar.style.width = "100%";
     elements.dosageForm.textContent = "پایان بازی";
     elements.questionText.textContent = "نتیجه بازی";
-    elements.questionSubtitle.textContent = `${formatNumber(quiz.correct)} پاسخ درست، ${formatNumber(wrong)} پاسخ اشتباه، دقت ${formatNumber(percent)}٪`;
+    elements.questionSubtitle.textContent = isLeague
+      ? `${formatNumber(quiz.correct)} پاسخ درست، امتیاز لیگ ${formatDecimal(leagueScore)}، مزیت زمان ${formatDecimal(timeBonus)}`
+      : `${formatNumber(quiz.correct)} پاسخ درست، ${formatNumber(wrong)} پاسخ اشتباه، دقت ${formatNumber(percent)}٪`;
     elements.feedback.hidden = true;
     clearChildren(elements.options);
 
-    elements.options.append(
+    const summaryItems = [
       makeSummaryTile("امتیاز", formatNumber(quiz.score)),
       makeSummaryTile("سؤال پاسخ‌داده‌شده", formatNumber(answered)),
       makeSummaryTile("دقت", `${formatNumber(percent)}٪`),
       makeSummaryTile("زمان", `${formatNumber(record.durationSeconds)} ثانیه`),
-      makeActionButton("بازی تصادفی جدید", "primary-action", startRandomGame),
-      makeActionButton("دیدن خطاها", "secondary-action", () => navigate("mistakes"))
-    );
+    ];
+
+    if (isLeague) {
+      summaryItems.push(
+        makeSummaryTile("امتیاز لیگ", formatDecimal(leagueScore)),
+        makeSummaryTile("مزیت زمان", formatDecimal(timeBonus)),
+        makeSummaryTile("رتبه‌پذیری", formatDecimal(leagueRating)),
+        makeActionButton("بازگشت به لیگ", "primary-action", () => navigate("league"))
+      );
+    } else {
+      summaryItems.push(
+        makeActionButton("بازی تصادفی جدید", "primary-action", startRandomGame),
+        makeActionButton("دیدن خطاها", "secondary-action", () => navigate("mistakes"))
+      );
+    }
+
+    elements.options.append(...summaryItems);
 
     renderDashboard();
     renderMistakes();
     renderScores();
+    renderAccount();
+    renderLeague();
     quiz = null;
   }
 
@@ -845,6 +1138,190 @@
     });
   }
 
+  function renderAccount() {
+    const isLoggedIn = Boolean(activeUser);
+    elements.accountGrid.classList.toggle("is-logged-in", isLoggedIn);
+    elements.authPanel.hidden = isLoggedIn;
+    elements.profilePanel.hidden = !isLoggedIn;
+
+    clearChildren(elements.userProfile);
+    clearChildren(elements.activityBoard);
+
+    if (!isLoggedIn) {
+      elements.activityBoard.append(emptyState("فعالیتی برای کاربر مهمان ثبت نمی‌شود."));
+      return;
+    }
+
+    const totalGames = TOPIC_IDS.reduce((sum, topicId) => sum + getTopicStore(topicId).games.length, 0);
+    const totalMistakes = TOPIC_IDS.reduce((sum, topicId) => sum + getMistakeItems(topicId).length, 0);
+    const bestLeague = getBestLeagueResult(activeUser);
+
+    elements.userProfile.append(
+      makeSummaryTile("نام کاربری", activeUser.username),
+      makeSummaryTile("بازی‌ها", formatNumber(totalGames)),
+      makeSummaryTile("خطاها", formatNumber(totalMistakes)),
+      makeSummaryTile("بهترین لیگ", bestLeague ? formatDecimal(bestLeague.leagueRating) : "0")
+    );
+
+    if (!activeUser.activities.length) {
+      elements.activityBoard.append(emptyState("هنوز فعالیتی ثبت نشده است."));
+      return;
+    }
+
+    activeUser.activities.slice(0, 12).forEach((activity) => {
+      const row = document.createElement("article");
+      row.className = "activity-row";
+      const copy = document.createElement("div");
+      const title = document.createElement("h3");
+      title.textContent = activity.label;
+      const detail = document.createElement("p");
+      detail.textContent = [activity.topicLabel, activity.detail, formatDate(activity.endedAt || activity.createdAt)]
+        .filter(Boolean)
+        .join(" | ");
+      const tags = document.createElement("div");
+      tags.className = "meta-tags";
+      if (activity.score !== undefined) tags.append(makeTag(`امتیاز: ${formatNumber(activity.score)}`, ""));
+      if (activity.percent !== undefined) tags.append(makeTag(`دقت: ${formatNumber(activity.percent)}٪`, "correct"));
+      if (activity.leagueRating !== undefined) tags.append(makeTag(`رتبه‌پذیری: ${formatDecimal(activity.leagueRating)}`, ""));
+      copy.append(title, detail, tags);
+      row.append(copy);
+      elements.activityBoard.append(row);
+    });
+  }
+
+  function renderLeague() {
+    elements.leagueButtons.forEach((button) => {
+      const topic = getTopic(button.dataset.leagueTopic);
+      button.disabled = !activeUser || topic.data.length < LEAGUE_QUESTION_COUNT;
+    });
+
+    clearChildren(elements.leagueBoard);
+    clearChildren(elements.leagueHistory);
+
+    const standings = getLeagueStandings();
+    if (!standings.length) {
+      elements.leagueBoard.append(emptyState("هنوز نتیجه‌ای در لیگ ثبت نشده است."));
+    } else {
+      standings.forEach((entry, index) => {
+        elements.leagueBoard.append(makeLeagueRow(entry, index + 1));
+      });
+    }
+
+    if (!activeUser) {
+      elements.leagueHistory.append(emptyState("برای ثبت نتیجه لیگ وارد حساب کاربری شوید."));
+      updateUserChrome();
+      return;
+    }
+
+    const history = [...activeUser.leagueResults].sort((a, b) => String(b.endedAt).localeCompare(String(a.endedAt)));
+    if (!history.length) {
+      elements.leagueHistory.append(emptyState("هنوز مسابقه لیگ برای این کاربر ثبت نشده است."));
+    } else {
+      history.slice(0, 10).forEach((result, index) => {
+        elements.leagueHistory.append(makeLeagueRow({ ...result, username: activeUser.username }, index + 1, true));
+      });
+    }
+
+    updateUserChrome();
+  }
+
+  function makeLeagueRow(entry, rank, compact = false) {
+    const row = document.createElement("article");
+    row.className = "league-row";
+
+    const rankBadge = document.createElement("div");
+    rankBadge.className = "rank-badge";
+    rankBadge.textContent = formatNumber(rank);
+
+    const copy = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = compact ? entry.topicLabel : entry.username;
+    const detail = document.createElement("p");
+    detail.textContent = compact
+      ? `${formatDate(entry.endedAt)} | ${formatNumber(entry.correct)}/${formatNumber(entry.answered)} درست`
+      : `${entry.topicLabel} | ${formatNumber(entry.correct)}/${formatNumber(entry.answered)} درست`;
+    const tags = document.createElement("div");
+    tags.className = "meta-tags";
+    tags.append(
+      makeTag(`امتیاز لیگ: ${formatDecimal(entry.scorePerQuestion)}`, "correct"),
+      makeTag(`مزیت زمان: ${formatDecimal(entry.timeBonus)}`, ""),
+      makeTag(`رتبه‌پذیری: ${formatDecimal(entry.leagueRating)}`, "")
+    );
+
+    copy.append(title, detail, tags);
+
+    const stat = document.createElement("div");
+    stat.className = "row-stat";
+    stat.append(document.createTextNode(formatDecimal(entry.leagueRating)));
+    const small = document.createElement("small");
+    small.textContent = "لیگ";
+    stat.append(small);
+
+    row.append(rankBadge, copy, stat);
+    return row;
+  }
+
+  function saveLeagueResult(record) {
+    if (!activeUser) return;
+    const result = {
+      id: record.id,
+      userId: activeUser.id,
+      username: activeUser.username,
+      topicId: record.topicId,
+      topicLabel: record.topicLabel,
+      rawScore: record.score,
+      scorePerQuestion: record.scorePerQuestion,
+      timeRemainingTotal: record.timeRemainingTotal,
+      timeBonus: record.timeBonus,
+      leagueRating: record.leagueRating,
+      answered: record.answered,
+      correct: record.correct,
+      wrong: record.wrong,
+      percent: record.percent,
+      durationSeconds: record.durationSeconds,
+      endedAt: record.endedAt,
+    };
+
+    activeUser.leagueResults.unshift(result);
+    activeUser.leagueResults = activeUser.leagueResults.slice(0, 120);
+    addActivity(
+      {
+        type: "league",
+        label: `لیگ ${record.topicLabel}`,
+        topicLabel: record.topicLabel,
+        score: record.score,
+        percent: record.percent,
+        leagueRating: record.leagueRating,
+        endedAt: record.endedAt,
+      },
+      { persist: false }
+    );
+    persistActiveUser();
+  }
+
+  function getLeagueStandings() {
+    return users
+      .map((user) => {
+        const best = getBestLeagueResult(user);
+        return best ? { ...best, username: user.username } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if ((b.leagueRating || 0) !== (a.leagueRating || 0)) return (b.leagueRating || 0) - (a.leagueRating || 0);
+        if ((b.scorePerQuestion || 0) !== (a.scorePerQuestion || 0)) return (b.scorePerQuestion || 0) - (a.scorePerQuestion || 0);
+        return String(b.endedAt || "").localeCompare(String(a.endedAt || ""));
+      });
+  }
+
+  function getBestLeagueResult(user) {
+    if (!user?.leagueResults?.length) return null;
+    return [...user.leagueResults].sort((a, b) => {
+      if ((b.leagueRating || 0) !== (a.leagueRating || 0)) return (b.leagueRating || 0) - (a.leagueRating || 0);
+      if ((b.scorePerQuestion || 0) !== (a.scorePerQuestion || 0)) return (b.scorePerQuestion || 0) - (a.scorePerQuestion || 0);
+      return String(b.endedAt || "").localeCompare(String(a.endedAt || ""));
+    })[0];
+  }
+
   function resetScores() {
     const topic = getActiveTopic();
     const topicStore = getTopicStore(topic.id);
@@ -869,9 +1346,55 @@
     renderMistakes();
   }
 
+  function addActivity(activity, options = {}) {
+    if (!activeUser) return;
+    const nextActivity = {
+      id: makeId(),
+      type: activity.type || "activity",
+      label: activity.label || "فعالیت",
+      detail: activity.detail || "",
+      topicLabel: activity.topicLabel || "",
+      score: activity.score,
+      percent: activity.percent,
+      leagueRating: activity.leagueRating,
+      createdAt: new Date().toISOString(),
+      endedAt: activity.endedAt || "",
+    };
+    activeUser.activities.unshift(nextActivity);
+    activeUser.activities = activeUser.activities.slice(0, 160);
+    if (options.persist !== false) persistActiveUser();
+  }
+
+  function updateUserChrome() {
+    const label = activeUser ? activeUser.username : "مهمان";
+    elements.currentUser.textContent = label;
+    elements.accountUser.textContent = label;
+    elements.leagueUser.textContent = label;
+  }
+
+  function clearAuthForms() {
+    elements.loginUsername.value = "";
+    elements.loginPassword.value = "";
+    elements.signupUsername.value = "";
+    elements.signupPassword.value = "";
+  }
+
+  function setAuthStatus(message, variant) {
+    elements.authStatus.textContent = message;
+    elements.authStatus.className = variant ? `auth-status ${variant}` : "auth-status";
+  }
+
   function exportReport() {
     const report = {
       exportedAt: new Date().toISOString(),
+      activeUser: activeUser
+        ? {
+            id: activeUser.id,
+            username: activeUser.username,
+            activities: activeUser.activities,
+            leagueResults: activeUser.leagueResults,
+          }
+        : null,
       activeTopic: selectedTopicId,
       topics: Object.fromEntries(
         TOPIC_IDS.map((topicId) => [
@@ -989,8 +1512,20 @@
     return clamp(Number(value || DEFAULT_SETTINGS.timerSeconds), MIN_TIMER_SECONDS, MAX_TIMER_SECONDS);
   }
 
+  function normalizeUsername(value) {
+    return String(value || "").trim().toLocaleLowerCase();
+  }
+
+  function roundMetric(value) {
+    return Math.round(Number(value || 0) * 100) / 100;
+  }
+
   function formatNumber(value) {
     return numberFormatter.format(Number(value || 0));
+  }
+
+  function formatDecimal(value) {
+    return numberFormatter.format(roundMetric(value));
   }
 
   function formatDate(value) {
@@ -1002,6 +1537,42 @@
   function makeId() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function makeSalt() {
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      return bytesToHex(bytes);
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function canUseSecureHash() {
+    return Boolean(window.crypto?.subtle && window.TextEncoder);
+  }
+
+  async function makePasswordHash(password, salt, method) {
+    const input = `${salt}:${password}`;
+    if (method === "sha256" && canUseSecureHash()) {
+      const data = new TextEncoder().encode(input);
+      const digest = await window.crypto.subtle.digest("SHA-256", data);
+      return bytesToHex(new Uint8Array(digest));
+    }
+    return fallbackHash(input);
+  }
+
+  function bytesToHex(bytes) {
+    return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  function fallbackHash(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
   }
 
   function escapeHtml(value) {

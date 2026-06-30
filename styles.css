@@ -486,6 +486,14 @@ h2 {
   box-shadow: 0 18px 36px rgba(0, 165, 142, 0.28);
 }
 
+.primary-action:disabled,
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
 .secondary-action {
   color: var(--button-ink);
   border: 1px solid var(--line);
@@ -520,7 +528,9 @@ h2 {
 .feedback-panel,
 .game-metrics > div,
 .mistake-row,
-.score-row {
+.score-row,
+.activity-row,
+.league-row {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel-bg);
@@ -723,6 +733,179 @@ h2 {
 
 .settings-panel {
   min-height: 230px;
+  background: var(--settings-panel-bg);
+}
+
+.account-chip {
+  display: inline-grid;
+  place-items: center;
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--soft-accent);
+  background: var(--timer-bg);
+  font-weight: 900;
+}
+
+.account-grid,
+.league-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.account-grid {
+  grid-template-areas:
+    "auth profile"
+    "auth activity";
+}
+
+.account-grid:not(.is-logged-in) {
+  grid-template-areas: "auth activity";
+}
+
+.account-grid.is-logged-in {
+  grid-template-areas: "profile activity";
+}
+
+.auth-panel {
+  grid-area: auth;
+  background: var(--start-panel-bg);
+}
+
+.profile-panel {
+  grid-area: profile;
+  background: var(--compact-panel-bg);
+}
+
+.activity-panel {
+  grid-area: activity;
+  background: var(--compact-panel-alt-bg);
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--choice-bg);
+}
+
+.auth-form h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--field-ink);
+  background: var(--field-bg);
+  direction: ltr;
+}
+
+.auth-form input:focus {
+  outline: 3px solid var(--focus-ring);
+  border-color: var(--teal);
+}
+
+.auth-status {
+  min-height: 34px;
+  margin-top: 12px;
+  color: var(--soft-muted);
+  font-weight: 800;
+}
+
+.auth-status.correct {
+  color: var(--correct-ink);
+}
+
+.auth-status.wrong {
+  color: var(--wrong-ink);
+}
+
+.profile-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.activity-board,
+.league-board,
+.league-history {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.league-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.league-card {
+  display: grid;
+  gap: 14px;
+  min-height: 168px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--metric-5-bg);
+  box-shadow: var(--soft-shadow);
+}
+
+.league-card:nth-child(2) {
+  background: var(--metric-2-bg);
+}
+
+.league-card:nth-child(3) {
+  background: var(--metric-3-bg);
+}
+
+.league-card:nth-child(4) {
+  background: var(--metric-4-bg);
+}
+
+.league-card span {
+  display: block;
+  color: var(--muted);
+  direction: ltr;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.league-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 19px;
+}
+
+.league-panel {
   background: var(--settings-panel-bg);
 }
 
@@ -1236,7 +1419,9 @@ h2 {
 }
 
 .mistake-row,
-.score-row {
+.score-row,
+.activity-row,
+.league-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 14px;
@@ -1246,24 +1431,52 @@ h2 {
 }
 
 .mistake-row:hover,
-.score-row:hover {
+.score-row:hover,
+.activity-row:hover,
+.league-row:hover {
   transform: translateY(-1px);
   border-color: rgba(0, 165, 142, 0.3);
   box-shadow: 0 18px 38px rgba(39, 80, 120, 0.1);
 }
 
 .mistake-row h3,
-.score-row h3 {
+.score-row h3,
+.activity-row h3,
+.league-row h3 {
   margin: 0;
   font-size: 18px;
   line-height: 1.5;
 }
 
 .mistake-row p,
-.score-row p {
+.score-row p,
+.activity-row p,
+.league-row p {
   margin: 6px 0 0;
   color: var(--muted);
   line-height: 1.75;
+}
+
+.activity-row {
+  grid-template-columns: 1fr;
+  background: var(--row-bg);
+}
+
+.league-row {
+  grid-template-columns: auto 1fr auto;
+  background: var(--row-bg);
+}
+
+.rank-badge {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius);
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--amber), var(--rose));
+  font-family: Arial, sans-serif;
+  font-weight: 900;
 }
 
 .meta-tags {
@@ -1329,9 +1542,18 @@ h2 {
   .topbar,
   .overview-band,
   .dashboard-grid,
+  .account-grid,
+  .league-layout,
   .settings-grid,
   .feedback-panel {
     grid-template-columns: 1fr;
+  }
+
+  .account-grid {
+    grid-template-areas:
+      "profile"
+      "auth"
+      "activity";
   }
 
   .topbar {
@@ -1357,6 +1579,10 @@ h2 {
 
   .topic-list {
     grid-template-columns: 1fr;
+  }
+
+  .league-topic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .overview-visual {
@@ -1396,14 +1622,16 @@ h2 {
   }
 
   .primary-nav {
-    justify-content: space-between;
+    justify-content: start;
     width: 100%;
     gap: 4px;
+    overflow-x: auto;
   }
 
   .nav-button {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     gap: 3px;
+    min-width: 66px;
     min-height: 44px;
     padding: 0 3px;
     font-size: 11px;
@@ -1448,9 +1676,17 @@ h2 {
   .game-metrics,
   .option-grid,
   .theme-options,
+  .auth-grid,
+  .profile-summary,
+  .league-topic-grid,
   .mistake-row,
-  .score-row {
+  .score-row,
+  .league-row {
     grid-template-columns: 1fr;
+  }
+
+  .rank-badge {
+    width: 100%;
   }
 
   .question-head,

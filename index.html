@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#087b72" />
+    <meta name="theme-color" content="#0f766e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="باغذا/بی غذا" />
@@ -46,6 +46,12 @@
       <symbol id="icon-settings" viewBox="0 0 24 24">
         <path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 3a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.8 7.8 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5l.4 3h4l.4-3A8 8 0 0 0 17 17.5l2.4 1 2-3.5-2-1.5ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z" />
       </symbol>
+      <symbol id="icon-trophy" viewBox="0 0 24 24">
+        <path d="M7 3h10v3h4v2a6 6 0 0 1-5.1 5.9A5 5 0 0 1 13 16.9V20h4v2H7v-2h4v-3.1a5 5 0 0 1-2.9-3A6 6 0 0 1 3 8V6h4V3Zm10 5v3.8A4 4 0 0 0 19 8h-2ZM5 8a4 4 0 0 0 2 3.8V8H5Z" />
+      </symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5Z" />
+      </symbol>
     </svg>
 
     <div class="app-shell">
@@ -67,6 +73,10 @@
             <svg><use href="#icon-play" /></svg>
             <span>بازی</span>
           </button>
+          <button class="nav-button" type="button" data-nav="league">
+            <svg><use href="#icon-trophy" /></svg>
+            <span>لیگ</span>
+          </button>
           <button class="nav-button" type="button" data-nav="mistakes">
             <svg><use href="#icon-alert" /></svg>
             <span>خطاها</span>
@@ -78,6 +88,10 @@
           <button class="nav-button" type="button" data-nav="settings">
             <svg><use href="#icon-settings" /></svg>
             <span>تنظیمات</span>
+          </button>
+          <button class="nav-button" type="button" data-nav="account">
+            <svg><use href="#icon-user" /></svg>
+            <span data-current-user>مهمان</span>
           </button>
         </nav>
       </header>
@@ -294,6 +308,63 @@
           </section>
         </section>
 
+        <section id="league" class="view" aria-labelledby="league-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Competitive League</p>
+              <h1 id="league-title">لیگ رقابتی</h1>
+            </div>
+            <span class="account-chip" data-league-user>مهمان</span>
+          </div>
+
+          <div class="league-topic-grid" aria-label="شروع لیگ">
+            <article class="league-card">
+              <div>
+                <span>Timing</span>
+                <strong>با غذا / بی غذا</strong>
+              </div>
+              <button class="primary-action" type="button" data-league-topic="timing">شروع لیگ</button>
+            </article>
+            <article class="league-card">
+              <div>
+                <span>Indication</span>
+                <strong>اندیکاسیون</strong>
+              </div>
+              <button class="primary-action" type="button" data-league-topic="indication">شروع لیگ</button>
+            </article>
+            <article class="league-card">
+              <div>
+                <span>Brand / Generic</span>
+                <strong>نام تجاری / ژنریک</strong>
+              </div>
+              <button class="primary-action" type="button" data-league-topic="brandGeneric">شروع لیگ</button>
+            </article>
+            <article class="league-card">
+              <div>
+                <span>Side Effects</span>
+                <strong>عوارض جانبی</strong>
+              </div>
+              <button class="primary-action" type="button" data-league-topic="sideEffects">شروع لیگ</button>
+            </article>
+          </div>
+
+          <div class="league-layout">
+            <section class="panel league-panel" aria-labelledby="leaderboard-title">
+              <div class="panel-heading">
+                <h2 id="leaderboard-title">رتبه‌بندی</h2>
+              </div>
+              <div class="league-board" data-league-board></div>
+            </section>
+
+            <section class="panel league-panel" aria-labelledby="league-history-title">
+              <div class="panel-heading">
+                <h2 id="league-history-title">نتایج من</h2>
+              </div>
+              <div class="league-history" data-league-history></div>
+            </section>
+          </div>
+        </section>
+
         <section id="mistakes" class="view" aria-labelledby="mistakes-title">
           <div class="section-heading">
             <div>
@@ -366,6 +437,69 @@
                   </span>
                 </label>
               </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="account" class="view" aria-labelledby="account-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">User Profile</p>
+              <h1 id="account-title">کاربری</h1>
+            </div>
+            <span class="account-chip" data-account-user>مهمان</span>
+          </div>
+
+          <div class="account-grid">
+            <section class="panel auth-panel" data-auth-panel aria-labelledby="auth-title">
+              <div class="panel-heading">
+                <h2 id="auth-title">ورود و ساخت کاربر</h2>
+              </div>
+
+              <div class="auth-grid">
+                <form class="auth-form" data-login-form>
+                  <h3>ورود</h3>
+                  <label>
+                    <span>نام کاربری</span>
+                    <input type="text" autocomplete="username" data-login-username />
+                  </label>
+                  <label>
+                    <span>پسورد</span>
+                    <input type="password" autocomplete="current-password" data-login-password />
+                  </label>
+                  <button class="primary-action full-width" type="submit">ورود</button>
+                </form>
+
+                <form class="auth-form" data-signup-form>
+                  <h3>ساخت کاربر</h3>
+                  <label>
+                    <span>نام کاربری</span>
+                    <input type="text" autocomplete="username" data-signup-username />
+                  </label>
+                  <label>
+                    <span>پسورد</span>
+                    <input type="password" autocomplete="new-password" data-signup-password />
+                  </label>
+                  <button class="secondary-action full-width" type="submit">ساخت کاربر</button>
+                </form>
+              </div>
+
+              <div class="auth-status" data-auth-status></div>
+            </section>
+
+            <section class="panel profile-panel" data-profile-panel aria-labelledby="profile-title">
+              <div class="panel-heading">
+                <h2 id="profile-title">کاربر فعال</h2>
+                <button class="secondary-action danger" type="button" data-logout>خروج</button>
+              </div>
+              <div class="profile-summary" data-user-profile></div>
+            </section>
+
+            <section class="panel activity-panel" aria-labelledby="activity-title">
+              <div class="panel-heading">
+                <h2 id="activity-title">فعالیت‌ها</h2>
+              </div>
+              <div class="activity-board" data-activity-board></div>
             </section>
           </div>
         </section>
