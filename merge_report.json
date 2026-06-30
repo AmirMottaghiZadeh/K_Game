@@ -1,0 +1,20 @@
+{
+  "excelRows": 481,
+  "drugsData": {
+    "before": 137,
+    "after": 370,
+    "matched": 94,
+    "new": 234,
+    "old_unmatched_kept": 42,
+    "excel_rows_used": 328,
+    "excel_rows_skipped_no_food": 123
+  },
+  "drugTopicData": {
+    "before": 423,
+    "after": 1123,
+    "matched_brand": 49,
+    "matched_generic": 52,
+    "new": 706,
+    "old_unmatched_kept": 316
+  }
+}

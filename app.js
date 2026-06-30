@@ -15,6 +15,8 @@
   const TIMER_TICK_MS = 250;
   const LEAGUE_QUESTION_COUNT = 50;
   const TIMEOUT_ANSWER = "پایان زمان";
+  const INVALID_ANSWER_OPTIONS = new Set(["ثبت نشده", ""]);
+  const VALID_TIMING_ANSWERS = new Set(["با غذا", "بدون غذا", "فرقی نمی‌کند", "وضعیت ثابت"]);
   const SUPABASE_CONFIG = window.KARAMOZI_SUPABASE || {};
   const SUPABASE_ENABLED = Boolean(
     SUPABASE_CONFIG.url &&
@@ -22,7 +24,7 @@
       window.supabase?.createClient
   );
   const TIMING_DRUGS = Array.isArray(window.DRUGS_DATA)
-    ? window.DRUGS_DATA.filter((drug) => drug.name && drug.consumptionTimeSorted)
+    ? window.DRUGS_DATA.filter((drug) => drug.name && VALID_TIMING_ANSWERS.has(drug.consumptionTimeSorted))
     : [];
   const TOPIC_DRUGS = Array.isArray(window.DRUG_TOPIC_DATA)
     ? window.DRUG_TOPIC_DATA.filter((drug) => drug.brandName && drug.genericName)
@@ -96,7 +98,7 @@
   const optionPools = Object.fromEntries(
     TOPIC_IDS.map((topicId) => [
       topicId,
-      [...new Set(TOPICS[topicId].data.map((drug) => TOPICS[topicId].getAnswer(drug)).filter(Boolean))],
+      makeOptionPool(TOPICS[topicId]),
     ])
   );
   const numberFormatter = new Intl.NumberFormat("en-US");
@@ -1184,10 +1186,70 @@
     quiz = null;
   }
 
+  function makeOptionPool(topic) {
+    const seen = new Set();
+    return topic.data
+      .map((drug) => topic.getAnswer(drug))
+      .filter(isUsableAnswer)
+      .filter((option) => {
+        const signature = getOptionSignature(option);
+        if (!signature || seen.has(signature)) return false;
+        seen.add(signature);
+        return true;
+      });
+  }
+
   function buildOptions(drug, topic) {
     const correctAnswer = topic.getAnswer(drug);
-    const distractors = shuffle(optionPools[topic.id].filter((option) => option !== correctAnswer)).slice(0, 3);
-    return shuffle([correctAnswer, ...distractors]).slice(0, 4);
+    const correctSignature = getOptionSignature(correctAnswer);
+    const seen = new Set([correctSignature]);
+    const distractors = [];
+
+    shuffle(optionPools[topic.id]).forEach((option) => {
+      const signature = getOptionSignature(option);
+      if (!signature || seen.has(signature)) return;
+      seen.add(signature);
+      distractors.push(option);
+    });
+
+    return shuffle([correctAnswer, ...distractors.slice(0, 3)]).slice(0, 4);
+  }
+
+  function isUsableAnswer(option) {
+    const value = normalizeOptionText(option);
+    return Boolean(value) && !INVALID_ANSWER_OPTIONS.has(value);
+  }
+
+  function getOptionSignature(option) {
+    const value = normalizeOptionText(option);
+    const key = value
+      .replace(/[يى]/g, "ی")
+      .replace(/ك/g, "ک")
+      .replace(/[\u200c\u200e\u200f\u202a-\u202e]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    const compactKey = key.replace(/[^0-9a-zA-Zآ-ی]+/g, "");
+
+    if (!compactKey || INVALID_ANSWER_OPTIONS.has(value)) return "";
+    if (compactKey === "gi" || compactKey.includes("مشکلاتگوارشی") || compactKey === "عوارضگوارشی") {
+      return "gi";
+    }
+    if (compactKey.includes("خوابالود") || compactKey.includes("خوابالو")) return "sleepiness";
+    if (compactKey.includes("سرگیجه")) return "dizziness";
+    if (compactKey.includes("تهوع") && compactKey.includes("استفراغ")) return "nausea-vomiting";
+    if (compactKey.includes("تهوع")) return "nausea";
+    if (compactKey.includes("استفراغ")) return "vomiting";
+    if (compactKey.includes("اسهال")) return "diarrhea";
+    if (compactKey.includes("یبوست")) return "constipation";
+    return compactKey;
+  }
+
+  function normalizeOptionText(option) {
+    return String(option || "")
+      .replace(/[\u200e\u200f\u202a-\u202e]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function recordMistake(topic, drug, selected) {
