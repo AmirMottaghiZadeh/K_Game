@@ -15,6 +15,12 @@
   const TIMER_TICK_MS = 250;
   const LEAGUE_QUESTION_COUNT = 50;
   const TIMEOUT_ANSWER = "پایان زمان";
+  const SUPABASE_CONFIG = window.KARAMOZI_SUPABASE || {};
+  const SUPABASE_ENABLED = Boolean(
+    SUPABASE_CONFIG.url &&
+      SUPABASE_CONFIG.anonKey &&
+      window.supabase?.createClient
+  );
   const TIMING_DRUGS = Array.isArray(window.DRUGS_DATA)
     ? window.DRUGS_DATA.filter((drug) => drug.name && drug.consumptionTimeSorted)
     : [];
@@ -109,6 +115,9 @@
   let activeUser = users.find((user) => user.id === activeUserId) || null;
   if (!activeUser) activeUserId = "";
   let store = loadCurrentStore();
+  let supabaseClient = null;
+  let cloudMode = false;
+  let cloudLeagueStandings = [];
   let quiz = null;
   let timerIntervalId = null;
 
@@ -147,9 +156,10 @@
     scoreBoard: document.querySelector("[data-score-board]"),
     loginForm: document.querySelector("[data-login-form]"),
     signupForm: document.querySelector("[data-signup-form]"),
-    loginUsername: document.querySelector("[data-login-username]"),
+    loginEmail: document.querySelector("[data-login-email]"),
     loginPassword: document.querySelector("[data-login-password]"),
     signupUsername: document.querySelector("[data-signup-username]"),
+    signupEmail: document.querySelector("[data-signup-email]"),
     signupPassword: document.querySelector("[data-signup-password]"),
     authPanel: document.querySelector("[data-auth-panel]"),
     profilePanel: document.querySelector("[data-profile-panel]"),
@@ -167,10 +177,11 @@
 
   init();
 
-  function init() {
+  async function init() {
     elements.randomCount.value = "20";
     applyTheme(settings.theme);
     syncSettingsControls();
+    await initSupabase();
 
     elements.navButtons.forEach((button) => {
       button.addEventListener("click", () => navigate(button.dataset.nav));
@@ -346,11 +357,12 @@
 
   function normalizeUser(user) {
     if (!user || typeof user !== "object") return null;
-    const id = normalizeUsername(user.id || user.username);
+    const id = normalizeEmail(user.id || user.email || user.username);
     if (!id || !user.passwordHash || !user.salt) return null;
     return {
       id,
-      username: String(user.username || id).trim() || id,
+      username: String(user.username || id.split("@")[0] || id).trim() || id,
+      email: normalizeEmail(user.email || id),
       salt: String(user.salt),
       passwordHash: String(user.passwordHash),
       passwordMethod: user.passwordMethod === "fallback" ? "fallback" : "sha256",
@@ -365,6 +377,11 @@
 
   function persistActiveUser() {
     if (!activeUser) return;
+    if (cloudMode) {
+      void persistCloudUserState();
+      return;
+    }
+
     const index = users.findIndex((user) => user.id === activeUser.id);
     if (index >= 0) {
       users[index] = activeUser;
@@ -373,6 +390,132 @@
     }
     saveUsers();
     saveActiveUserId();
+  }
+
+  async function initSupabase() {
+    if (!SUPABASE_ENABLED) return;
+
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      });
+
+      const { data } = await supabaseClient.auth.getSession();
+      if (data?.session?.user) {
+        await setCloudUserFromAuth(data.session.user);
+      }
+
+      await refreshCloudLeagueStandings();
+
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        void handleCloudAuthChange(session?.user || null);
+      });
+    } catch (error) {
+      supabaseClient = null;
+      cloudMode = false;
+      setAuthStatus(`اتصال Supabase برقرار نشد: ${error.message || "خطای نامشخص"}`, "wrong");
+    }
+  }
+
+  async function handleCloudAuthChange(user) {
+    if (user) {
+      await setCloudUserFromAuth(user);
+    } else if (cloudMode) {
+      cloudMode = false;
+      activeUser = null;
+      activeUserId = "";
+      store = loadStore();
+    }
+    refreshUserViews();
+    renderIdleGame();
+  }
+
+  async function setCloudUserFromAuth(authUser) {
+    const profile = await ensureCloudProfile(authUser);
+    const state = await loadCloudUserState(authUser.id);
+    activeUser = {
+      id: authUser.id,
+      email: authUser.email || profile.email || "",
+      username: profile.username || authUser.email || "کاربر",
+      createdAt: profile.created_at || authUser.created_at || new Date().toISOString(),
+      lastLoginAt: new Date().toISOString(),
+      updatedAt: state.updated_at || "",
+      store: normalizeStore(state.store),
+      activities: Array.isArray(state.activities) ? state.activities.slice(0, 160) : [],
+      leagueResults: await loadCloudUserLeagueResults(authUser.id),
+      cloud: true,
+    };
+    activeUserId = activeUser.id;
+    cloudMode = true;
+    store = normalizeStore(activeUser.store);
+  }
+
+  async function ensureCloudProfile(authUser) {
+    const metadataUsername = authUser.user_metadata?.username;
+    const fallbackUsername = authUser.email ? authUser.email.split("@")[0] : "user";
+    const desiredUsername = String(metadataUsername || fallbackUsername).trim();
+
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("user_id, username, email, created_at, updated_at")
+      .eq("user_id", authUser.id)
+      .maybeSingle();
+
+    if (data && !error) return data;
+
+    const { data: inserted, error: insertError } = await supabaseClient
+      .from("profiles")
+      .upsert(
+        {
+          user_id: authUser.id,
+          username: desiredUsername,
+          email: authUser.email || "",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      )
+      .select("user_id, username, email, created_at, updated_at")
+      .single();
+
+    if (insertError) throw insertError;
+    return inserted;
+  }
+
+  async function loadCloudUserState(userId) {
+    const { data, error } = await supabaseClient
+      .from("user_states")
+      .select("store, activities, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data && !error) return data;
+
+    const empty = {
+      user_id: userId,
+      store: makeEmptyStore(),
+      activities: [],
+      updated_at: new Date().toISOString(),
+    };
+    await supabaseClient.from("user_states").upsert(empty, { onConflict: "user_id" });
+    return empty;
+  }
+
+  async function persistCloudUserState() {
+    if (!activeUser || !supabaseClient) return;
+    activeUser.store = store;
+    activeUser.updatedAt = new Date().toISOString();
+    await supabaseClient.from("user_states").upsert(
+      {
+        user_id: activeUser.id,
+        store: activeUser.store,
+        activities: activeUser.activities,
+        updated_at: activeUser.updatedAt,
+      },
+      { onConflict: "user_id" }
+    );
   }
 
   function makeEmptyStore() {
@@ -453,15 +596,21 @@
   async function handleSignup(event) {
     event.preventDefault();
     const username = elements.signupUsername.value.trim();
+    const email = normalizeEmail(elements.signupEmail.value);
     const password = elements.signupPassword.value;
     const id = normalizeUsername(username);
 
-    if (id.length < 2 || password.length < 4) {
-      setAuthStatus("نام کاربری حداقل ۲ کاراکتر و پسورد حداقل ۴ کاراکتر باشد.", "wrong");
+    if (id.length < 2 || !isValidEmail(email) || password.length < 6) {
+      setAuthStatus("نام کاربری، ایمیل معتبر و پسورد حداقل ۶ کاراکتر لازم است.", "wrong");
       return;
     }
 
-    if (users.some((user) => user.id === id)) {
+    if (SUPABASE_ENABLED) {
+      await signupCloudUser(username, email, password);
+      return;
+    }
+
+    if (users.some((user) => user.id === email || user.email === email || user.username === username)) {
       setAuthStatus("این نام کاربری قبلا ساخته شده است.", "wrong");
       return;
     }
@@ -471,8 +620,9 @@
     const passwordHash = await makePasswordHash(password, salt, passwordMethod);
     const now = new Date().toISOString();
     activeUser = {
-      id,
+      id: email,
       username,
+      email,
       salt,
       passwordHash,
       passwordMethod,
@@ -483,7 +633,7 @@
       activities: [],
       leagueResults: [],
     };
-    activeUserId = id;
+    activeUserId = email;
     store = normalizeStore(activeUser.store);
     addActivity({ type: "account", label: "ساخت کاربر", detail: activeUser.username }, { persist: false });
     persistActiveUser();
@@ -494,9 +644,17 @@
 
   async function handleLogin(event) {
     event.preventDefault();
-    const id = normalizeUsername(elements.loginUsername.value);
+    const email = normalizeEmail(elements.loginEmail.value);
     const password = elements.loginPassword.value;
-    const user = users.find((item) => item.id === id);
+
+    if (SUPABASE_ENABLED) {
+      await loginCloudUser(email, password);
+      return;
+    }
+
+    const user = users.find(
+      (item) => item.id === email || item.email === email || normalizeUsername(item.username) === email
+    );
 
     if (!user) {
       setAuthStatus("کاربر پیدا نشد.", "wrong");
@@ -525,8 +683,82 @@
     refreshUserViews();
   }
 
+  async function signupCloudUser(username, email, password) {
+    setAuthStatus("در حال ساخت کاربر...", "");
+    let data;
+    let error;
+    try {
+      const response = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username },
+        },
+      });
+      data = response.data;
+      error = response.error;
+    } catch (requestError) {
+      setAuthStatus(requestError.message || "اتصال به Supabase انجام نشد.", "wrong");
+      return;
+    }
+
+    if (error) {
+      setAuthStatus(error.message || "ساخت کاربر انجام نشد.", "wrong");
+      return;
+    }
+
+    if (!data.session && data.user) {
+      clearAuthForms();
+      setAuthStatus("کاربر ساخته شد. اگر تایید ایمیل فعال است، ایمیل را تایید کن و سپس وارد شو.", "correct");
+      return;
+    }
+
+    if (data.user) {
+      await setCloudUserFromAuth(data.user);
+      await refreshCloudLeagueStandings();
+      addActivity({ type: "account", label: "ساخت کاربر", detail: activeUser.username }, { persist: false });
+      await persistCloudUserState();
+      clearAuthForms();
+      setAuthStatus("کاربر ساخته و وارد شد.", "correct");
+      refreshUserViews();
+    }
+  }
+
+  async function loginCloudUser(email, password) {
+    setAuthStatus("در حال ورود...", "");
+    let data;
+    let error;
+    try {
+      const response = await supabaseClient.auth.signInWithPassword({ email, password });
+      data = response.data;
+      error = response.error;
+    } catch (requestError) {
+      setAuthStatus(requestError.message || "اتصال به Supabase انجام نشد.", "wrong");
+      return;
+    }
+
+    if (error) {
+      setAuthStatus(error.message || "ورود انجام نشد.", "wrong");
+      return;
+    }
+
+    if (data.user) {
+      await setCloudUserFromAuth(data.user);
+      await refreshCloudLeagueStandings();
+      addActivity({ type: "account", label: "ورود", detail: activeUser.username }, { persist: false });
+      await persistCloudUserState();
+      clearAuthForms();
+      setAuthStatus("ورود انجام شد.", "correct");
+      refreshUserViews();
+    }
+  }
+
   function logoutUser() {
     if (!activeUser) return;
+    if (cloudMode && supabaseClient) {
+      void supabaseClient.auth.signOut();
+    }
+    cloudMode = false;
     stopQuestionTimer();
     quiz = null;
     activeUser = null;
@@ -1296,10 +1528,15 @@
       },
       { persist: false }
     );
+    if (cloudMode) {
+      void saveCloudLeagueResult(result);
+    }
     persistActiveUser();
   }
 
   function getLeagueStandings() {
+    if (supabaseClient) return cloudLeagueStandings;
+
     return users
       .map((user) => {
         const best = getBestLeagueResult(user);
@@ -1320,6 +1557,112 @@
       if ((b.scorePerQuestion || 0) !== (a.scorePerQuestion || 0)) return (b.scorePerQuestion || 0) - (a.scorePerQuestion || 0);
       return String(b.endedAt || "").localeCompare(String(a.endedAt || ""));
     })[0];
+  }
+
+  async function saveCloudLeagueResult(result) {
+    if (!supabaseClient || !activeUser) return;
+    const { data, error } = await supabaseClient
+      .from("league_results")
+      .insert({
+        user_id: activeUser.id,
+        topic_id: result.topicId,
+        topic_label: result.topicLabel,
+        raw_score: result.rawScore,
+        score_per_question: result.scorePerQuestion,
+        time_remaining_total: result.timeRemainingTotal,
+        time_bonus: result.timeBonus,
+        league_rating: result.leagueRating,
+        answered: result.answered,
+        correct: result.correct,
+        wrong: result.wrong,
+        percent: result.percent,
+        duration_seconds: result.durationSeconds,
+      })
+      .select("id, created_at")
+      .single();
+
+    if (!error && data) {
+      result.id = data.id;
+      result.endedAt = data.created_at;
+      await refreshCloudLeagueStandings();
+      renderLeague();
+    }
+  }
+
+  async function loadCloudUserLeagueResults(userId) {
+    if (!supabaseClient) return [];
+    const { data, error } = await supabaseClient
+      .from("league_results")
+      .select("id, topic_id, topic_label, raw_score, score_per_question, time_remaining_total, time_bonus, league_rating, answered, correct, wrong, percent, duration_seconds, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(120);
+
+    if (error || !Array.isArray(data)) return [];
+    return data.map(mapCloudLeagueResult);
+  }
+
+  async function refreshCloudLeagueStandings() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from("league_results")
+      .select("id, user_id, topic_id, topic_label, raw_score, score_per_question, time_remaining_total, time_bonus, league_rating, answered, correct, wrong, percent, duration_seconds, created_at")
+      .order("league_rating", { ascending: false })
+      .order("score_per_question", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    if (error || !Array.isArray(data)) {
+      cloudLeagueStandings = [];
+      return;
+    }
+
+    const userIds = [...new Set(data.map((row) => row.user_id).filter(Boolean))];
+    const profileMap = new Map();
+    if (userIds.length) {
+      const { data: profiles } = await supabaseClient
+        .from("profiles")
+        .select("user_id, username")
+        .in("user_id", userIds);
+      (profiles || []).forEach((profile) => profileMap.set(profile.user_id, profile.username));
+    }
+
+    const bestByUser = new Map();
+    data.forEach((row) => {
+      const result = mapCloudLeagueResult(row);
+      result.username = profileMap.get(row.user_id) || "کاربر";
+      const previous = bestByUser.get(row.user_id);
+      if (!previous || compareLeagueResults(result, previous) < 0) {
+        bestByUser.set(row.user_id, result);
+      }
+    });
+    cloudLeagueStandings = [...bestByUser.values()].sort(compareLeagueResults);
+  }
+
+  function mapCloudLeagueResult(row) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      topicId: row.topic_id,
+      topicLabel: row.topic_label,
+      rawScore: Number(row.raw_score || 0),
+      scorePerQuestion: Number(row.score_per_question || 0),
+      timeRemainingTotal: Number(row.time_remaining_total || 0),
+      timeBonus: Number(row.time_bonus || 0),
+      leagueRating: Number(row.league_rating || 0),
+      answered: Number(row.answered || 0),
+      correct: Number(row.correct || 0),
+      wrong: Number(row.wrong || 0),
+      percent: Number(row.percent || 0),
+      durationSeconds: Number(row.duration_seconds || 0),
+      endedAt: row.created_at,
+    };
+  }
+
+  function compareLeagueResults(a, b) {
+    if ((b.leagueRating || 0) !== (a.leagueRating || 0)) return (b.leagueRating || 0) - (a.leagueRating || 0);
+    if ((b.scorePerQuestion || 0) !== (a.scorePerQuestion || 0)) return (b.scorePerQuestion || 0) - (a.scorePerQuestion || 0);
+    return String(b.endedAt || "").localeCompare(String(a.endedAt || ""));
   }
 
   function resetScores() {
@@ -1373,9 +1716,10 @@
   }
 
   function clearAuthForms() {
-    elements.loginUsername.value = "";
+    elements.loginEmail.value = "";
     elements.loginPassword.value = "";
     elements.signupUsername.value = "";
+    elements.signupEmail.value = "";
     elements.signupPassword.value = "";
   }
 
@@ -1514,6 +1858,14 @@
 
   function normalizeUsername(value) {
     return String(value || "").trim().toLocaleLowerCase();
+  }
+
+  function normalizeEmail(value) {
+    return String(value || "").trim().toLocaleLowerCase();
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ""));
   }
 
   function roundMetric(value) {

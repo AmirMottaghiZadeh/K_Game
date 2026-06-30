@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#0f766e" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="باغذا/بی غذا" />
+    <meta name="apple-mobile-web-app-title" content="کارآموزی عرصه" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>باغذا/بی غذا</title>
+    <title>کارآموزی عرصه</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/app-icon-192.png" />
@@ -59,7 +59,7 @@
         <a class="brand" href="#dashboard" data-nav="dashboard" aria-label="داشبورد">
           <span class="brand-mark">Rx</span>
           <span>
-            <strong>باغذا/بی غذا</strong>
+            <strong>کارآموزی عرصه</strong>
             <small>Karamozi Drug Game</small>
           </span>
         </a>
@@ -460,8 +460,8 @@
                 <form class="auth-form" data-login-form>
                   <h3>ورود</h3>
                   <label>
-                    <span>نام کاربری</span>
-                    <input type="text" autocomplete="username" data-login-username />
+                    <span>ایمیل</span>
+                    <input type="email" autocomplete="email" data-login-email />
                   </label>
                   <label>
                     <span>پسورد</span>
@@ -475,6 +475,10 @@
                   <label>
                     <span>نام کاربری</span>
                     <input type="text" autocomplete="username" data-signup-username />
+                  </label>
+                  <label>
+                    <span>ایمیل</span>
+                    <input type="email" autocomplete="email" data-signup-email />
                   </label>
                   <label>
                     <span>پسورد</span>
@@ -513,6 +517,8 @@
 
     <script src="drugs-data.js"></script>
     <script src="drug-topics-data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

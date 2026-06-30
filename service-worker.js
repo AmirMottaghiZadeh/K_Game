@@ -1,4 +1,4 @@
-const CACHE_NAME = "baghaza-bi-ghaza-v7";
+const CACHE_NAME = "karamozi-arseh-v9";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const APP_ASSETS = [
   "./drugs-data.js",
   "./drug-topics-data.js",
   "./manifest.webmanifest",
+  "./supabase-config.js",
   "./assets/pharma-visual.svg",
   "./assets/app-icon-192.png",
   "./assets/app-icon-512.png",
