@@ -14,9 +14,28 @@
   const MAX_TIMER_SECONDS = 180;
   const TIMER_TICK_MS = 250;
   const LEAGUE_QUESTION_COUNT = 50;
+  const FLASHCARD_TOPIC_IDS = ["brandGeneric", "indication", "sideEffects"];
+  const LEITNER_BOX_COUNT = 5;
+  const LEITNER_BOX_LABELS = ["خطای تازه", "نیازمند مرور", "پرتکرار", "سخت", "بسیار سخت"];
   const TIMEOUT_ANSWER = "پایان زمان";
   const INVALID_ANSWER_OPTIONS = new Set(["ثبت نشده", ""]);
   const VALID_TIMING_ANSWERS = new Set(["با غذا", "بدون غذا", "فرقی نمی‌کند", "وضعیت ثابت"]);
+  const BRAND_GENERIC_EXCLUDED_BRAND_SIGNATURES = new Set([
+    "metformin",
+    "empagliflozin",
+    "linagliptin",
+    "insulin",
+  ]);
+  const STATIC_GENERIC_SIGNATURE_ALIASES = {
+    doxepin: "دوکسپین",
+    olanzapine: "اولانزاپین",
+    risperidone: "ریسپریدون",
+    quetiapine: "کوئتیاپین",
+    aripiprazole: "اریپیپرازول",
+    carbamazepine: "کاربامازپین",
+    lamotrigine: "لاموتریژین",
+    amantadine: "امانتادین",
+  };
   const SUPABASE_CONFIG = window.KARAMOZI_SUPABASE || {};
   const SUPABASE_ENABLED = Boolean(
     SUPABASE_CONFIG.url &&
@@ -29,6 +48,8 @@
   const TOPIC_DRUGS = Array.isArray(window.DRUG_TOPIC_DATA)
     ? window.DRUG_TOPIC_DATA.filter((drug) => drug.brandName && drug.genericName)
     : [];
+  const GENERIC_ALIAS_SIGNATURES = makeGenericAliasSignatureMap(TOPIC_DRUGS);
+  const BRAND_GENERIC_DRUGS = makeBrandGenericDrugRows(TOPIC_DRUGS);
   const TOPICS = {
     timing: {
       id: "timing",
@@ -48,14 +69,14 @@
       id: "brandGeneric",
       label: "نام تجاری / ژنریک",
       detail: "تطبیق Brand name با Generic name",
-      data: TOPIC_DRUGS.filter((drug) => drug.genericName),
+      data: BRAND_GENERIC_DRUGS,
       getAnswer: (drug) => drug.genericName,
       getName: (drug) => drug.brandName,
-      getSubtitle: (drug) => drug.drugClassification || drug.dosageForm || "",
+      getSubtitle: (drug) => drug.drugClassification || "",
       getChip: (drug) => drug.drugClassification || "نام تجاری دارو",
       getQuestionHtml: (drug) =>
         `نام ژنریک داروی تجاری <span class="drug-name">${escapeHtml(drug.brandName)}</span> کدام است؟`,
-      getSubtitleText: (drug) => (drug.dosageForm ? `فرم دارویی: ${drug.dosageForm}` : ""),
+      getSubtitleText: (drug) => drug.drugClassification || "",
       getFeedback: (drug) =>
         `${drug.brandName} = ${drug.genericName}${drug.drugClassification ? ` | ${drug.drugClassification}` : ""}`,
     },
@@ -67,7 +88,7 @@
       getAnswer: (drug) => drug.indicationAnswer,
       getName: (drug) => drug.brandName,
       getSubtitle: (drug) => drug.genericName,
-      getChip: (drug) => drug.dosageForm || "فرم دارویی ثبت نشده",
+      getChip: (drug) => drug.drugClassification || "اندیکاسیون",
       getQuestionHtml: (drug) =>
         `کاربرد اصلی داروی <span class="drug-name">${escapeHtml(drug.brandName)}</span> کدام است؟`,
       getSubtitleText: (drug) => `نام ژنریک: ${drug.genericName}`,
@@ -81,7 +102,7 @@
       getAnswer: (drug) => drug.sideEffectsAnswer,
       getName: (drug) => drug.brandName,
       getSubtitle: (drug) => drug.genericName,
-      getChip: (drug) => drug.dosageForm || "فرم دارویی ثبت نشده",
+      getChip: (drug) => drug.drugClassification || "عوارض جانبی",
       getQuestionHtml: (drug) =>
         `کدام مورد از عوارض جانبی مهم داروی <span class="drug-name">${escapeHtml(drug.brandName)}</span> است؟`,
       getSubtitleText: (drug) => `نام ژنریک: ${drug.genericName}`,
@@ -111,6 +132,9 @@
   });
 
   let selectedTopicId = loadSelectedTopic();
+  let selectedFlashcardTopicId = FLASHCARD_TOPIC_IDS.includes(selectedTopicId) ? selectedTopicId : "brandGeneric";
+  let selectedFlashcardCategory = "";
+  let selectedLeitnerBox = 0;
   let settings = loadSettings();
   let users = loadUsers();
   let activeUserId = loadActiveUserId();
@@ -122,6 +146,11 @@
   let cloudLeagueStandings = [];
   let quiz = null;
   let timerIntervalId = null;
+  let flashcardSession = {
+    topicId: selectedFlashcardTopicId,
+    current: null,
+    revealed: false,
+  };
 
   const elements = {
     views: [...document.querySelectorAll(".view")],
@@ -130,6 +159,9 @@
     modeRadios: [...document.querySelectorAll("input[name='game-mode']")],
     themeRadios: [...document.querySelectorAll("input[name='theme-mode']")],
     leagueButtons: [...document.querySelectorAll("[data-league-topic]")],
+    flashcardTopicButtons: [...document.querySelectorAll("[data-flashcard-topic]")],
+    flashcardCategory: document.querySelector("[data-flashcard-category]"),
+    flashcardCategoryCount: document.querySelector("[data-flashcard-category-count]"),
     randomCount: document.querySelector("#random-count"),
     timerDuration: document.querySelector("[data-timer-duration]"),
     timerRange: document.querySelector("[data-timer-range]"),
@@ -156,18 +188,23 @@
     topMistakes: document.querySelector("[data-top-mistakes]"),
     mistakeBoard: document.querySelector("[data-mistake-board]"),
     scoreBoard: document.querySelector("[data-score-board]"),
-    loginForm: document.querySelector("[data-login-form]"),
-    signupForm: document.querySelector("[data-signup-form]"),
-    loginEmail: document.querySelector("[data-login-email]"),
-    loginPassword: document.querySelector("[data-login-password]"),
-    signupUsername: document.querySelector("[data-signup-username]"),
-    signupEmail: document.querySelector("[data-signup-email]"),
-    signupPassword: document.querySelector("[data-signup-password]"),
+    loginForms: [...document.querySelectorAll("[data-login-form]")],
+    signupForms: [...document.querySelectorAll("[data-signup-form]")],
+    loginEmails: [...document.querySelectorAll("[data-login-email]")],
+    loginPasswords: [...document.querySelectorAll("[data-login-password]")],
+    signupUsernames: [...document.querySelectorAll("[data-signup-username]")],
+    signupEmails: [...document.querySelectorAll("[data-signup-email]")],
+    signupPasswords: [...document.querySelectorAll("[data-signup-password]")],
+    dashboardAuthPanel: document.querySelector("[data-dashboard-auth-panel]"),
+    dashboardAuthGuest: document.querySelector("[data-dashboard-auth-guest]"),
+    dashboardAuthProfile: document.querySelector("[data-dashboard-auth-profile]"),
+    dashboardUserProfile: document.querySelector("[data-dashboard-user-profile]"),
+    dashboardUser: document.querySelector("[data-dashboard-user]"),
     authPanel: document.querySelector("[data-auth-panel]"),
     profilePanel: document.querySelector("[data-profile-panel]"),
     accountGrid: document.querySelector(".account-grid"),
-    authStatus: document.querySelector("[data-auth-status]"),
-    logout: document.querySelector("[data-logout]"),
+    authStatusMessages: [...document.querySelectorAll("[data-auth-status]")],
+    logoutButtons: [...document.querySelectorAll("[data-logout]")],
     userProfile: document.querySelector("[data-user-profile]"),
     activityBoard: document.querySelector("[data-activity-board]"),
     currentUser: document.querySelector("[data-current-user]"),
@@ -175,6 +212,26 @@
     leagueUser: document.querySelector("[data-league-user]"),
     leagueBoard: document.querySelector("[data-league-board]"),
     leagueHistory: document.querySelector("[data-league-history]"),
+    flashcardUser: document.querySelector("[data-flashcard-user]"),
+    flashcardTopicLabel: document.querySelector("[data-flashcard-topic-label]"),
+    flashcardDue: document.querySelector("[data-flashcard-due]"),
+    flashcardCurrentBox: document.querySelector("[data-flashcard-current-box]"),
+    flashcardReviewed: document.querySelector("[data-flashcard-reviewed]"),
+    flashcardAccuracy: document.querySelector("[data-flashcard-accuracy]"),
+    flashcardCard: document.querySelector("[data-flashcard-card]"),
+    flashcardFrontLabel: document.querySelector("[data-flashcard-front-label]"),
+    flashcardFront: document.querySelector("[data-flashcard-front]"),
+    flashcardSubtitle: document.querySelector("[data-flashcard-subtitle]"),
+    flashcardAnswer: document.querySelector("[data-flashcard-answer]"),
+    flashcardBack: document.querySelector("[data-flashcard-back]"),
+    flashcardShow: document.querySelector("[data-flashcard-show]"),
+    flashcardWrong: document.querySelector("[data-flashcard-wrong]"),
+    flashcardCorrect: document.querySelector("[data-flashcard-correct]"),
+    flashcardPrev: document.querySelector("[data-flashcard-prev]"),
+    flashcardNext: document.querySelector("[data-flashcard-next]"),
+    flashcardPosition: document.querySelector("[data-flashcard-position]"),
+    leitnerBoxes: document.querySelector("[data-leitner-boxes]"),
+    flashcardHistory: document.querySelector("[data-flashcard-history]"),
   };
 
   init();
@@ -217,12 +274,16 @@
 
     elements.timerDuration.addEventListener("change", () => updateTimerSetting(elements.timerDuration.value));
     elements.timerRange.addEventListener("input", () => updateTimerSetting(elements.timerRange.value));
-    elements.loginForm.addEventListener("submit", handleLogin);
-    elements.signupForm.addEventListener("submit", handleSignup);
-    elements.logout.addEventListener("click", logoutUser);
+    elements.loginForms.forEach((form) => form.addEventListener("submit", handleLogin));
+    elements.signupForms.forEach((form) => form.addEventListener("submit", handleSignup));
+    elements.logoutButtons.forEach((button) => button.addEventListener("click", logoutUser));
     elements.leagueButtons.forEach((button) => {
       button.addEventListener("click", () => startLeagueGame(button.dataset.leagueTopic));
     });
+    elements.flashcardTopicButtons.forEach((button) => {
+      button.addEventListener("click", () => selectFlashcardTopic(button.dataset.flashcardTopic));
+    });
+    elements.flashcardCategory.addEventListener("change", () => selectFlashcardCategory(elements.flashcardCategory.value));
 
     document.querySelector("[data-start-selected]").addEventListener("click", startSelectedMode);
     document.querySelector("[data-start-random]").addEventListener("click", () => startRandomGame());
@@ -233,6 +294,11 @@
     document.querySelector("[data-practice-mistakes]").addEventListener("click", startMistakePractice);
     document.querySelector("[data-export-report]").addEventListener("click", exportReport);
     elements.nextQuestion.addEventListener("click", nextQuestion);
+    elements.flashcardShow.addEventListener("click", showFlashcardAnswer);
+    elements.flashcardWrong.addEventListener("click", () => gradeFlashcard(false));
+    elements.flashcardCorrect.addEventListener("click", () => gradeFlashcard(true));
+    elements.flashcardPrev.addEventListener("click", () => navigateFlashcard(-1));
+    elements.flashcardNext.addEventListener("click", () => navigateFlashcard(1));
 
     updateTopicSelection();
     updateModeSelection();
@@ -242,6 +308,7 @@
     renderIdleGame();
     renderAccount();
     renderLeague();
+    renderFlashcards();
     registerServiceWorker();
   }
 
@@ -282,11 +349,13 @@
       TOPIC_IDS.forEach((topicId) => {
         nextStore.topics[topicId] = normalizeTopicStore(value.topics[topicId]);
       });
+      nextStore.flashcards = normalizeFlashcardStore(value.flashcards);
       return nextStore;
     }
 
     if (value && typeof value === "object") {
       nextStore.topics.timing = normalizeTopicStore(value);
+      nextStore.flashcards = normalizeFlashcardStore(value.flashcards);
     }
 
     return nextStore;
@@ -523,6 +592,7 @@
   function makeEmptyStore() {
     return {
       topics: Object.fromEntries(TOPIC_IDS.map((topicId) => [topicId, makeEmptyTopicStore()])),
+      flashcards: makeEmptyFlashcardStore(),
     };
   }
 
@@ -549,6 +619,70 @@
         answered: Number(topicStore.totals?.answered || 0),
         correct: Number(topicStore.totals?.correct || 0),
       },
+    };
+  }
+
+  function makeEmptyFlashcardStore() {
+    return {
+      topics: Object.fromEntries(
+        FLASHCARD_TOPIC_IDS.map((topicId) => [topicId, makeEmptyFlashcardTopicStore()])
+      ),
+    };
+  }
+
+  function makeEmptyFlashcardTopicStore() {
+    return {
+      cards: {},
+      reviewed: 0,
+      correct: 0,
+      wrong: 0,
+      history: [],
+    };
+  }
+
+  function normalizeFlashcardStore(value) {
+    const next = makeEmptyFlashcardStore();
+    if (!value || typeof value !== "object") return next;
+
+    const sourceTopics = value.topics && typeof value.topics === "object" ? value.topics : value;
+    FLASHCARD_TOPIC_IDS.forEach((topicId) => {
+      next.topics[topicId] = normalizeFlashcardTopicStore(sourceTopics[topicId]);
+    });
+    return next;
+  }
+
+  function normalizeFlashcardTopicStore(value) {
+    const next = makeEmptyFlashcardTopicStore();
+    if (!value || typeof value !== "object") return next;
+
+    next.reviewed = Number(value.reviewed || 0);
+    next.correct = Number(value.correct || 0);
+    next.wrong = Number(value.wrong || 0);
+    next.history = Array.isArray(value.history) ? value.history.slice(0, 80) : [];
+
+    if (value.cards && typeof value.cards === "object") {
+      Object.entries(value.cards).forEach(([key, card]) => {
+        const normalized = normalizeFlashcardCard(card);
+        if (normalized) next.cards[key] = normalized;
+      });
+    }
+
+    return next;
+  }
+
+  function normalizeFlashcardCard(card) {
+    if (!card || typeof card !== "object") return null;
+    return {
+      key: String(card.key || ""),
+      topicId: String(card.topicId || ""),
+      drugId: String(card.drugId || ""),
+      box: clamp(Number(card.box || 1), 1, LEITNER_BOX_COUNT),
+      dueAt: String(card.dueAt || ""),
+      reviewed: Number(card.reviewed || 0),
+      correct: Number(card.correct || 0),
+      wrong: Number(card.wrong || 0),
+      lastGrade: card.lastGrade === "correct" ? "correct" : card.lastGrade === "wrong" ? "wrong" : "",
+      lastAt: String(card.lastAt || ""),
     };
   }
 
@@ -597,9 +731,10 @@
 
   async function handleSignup(event) {
     event.preventDefault();
-    const username = elements.signupUsername.value.trim();
-    const email = normalizeEmail(elements.signupEmail.value);
-    const password = elements.signupPassword.value;
+    const form = event.currentTarget;
+    const username = form.querySelector("[data-signup-username]")?.value.trim() || "";
+    const email = normalizeEmail(form.querySelector("[data-signup-email]")?.value);
+    const password = form.querySelector("[data-signup-password]")?.value || "";
     const id = normalizeUsername(username);
 
     if (id.length < 2 || !isValidEmail(email) || password.length < 6) {
@@ -612,7 +747,11 @@
       return;
     }
 
-    if (users.some((user) => user.id === email || user.email === email || user.username === username)) {
+    if (
+      users.some(
+        (user) => user.id === email || user.email === email || normalizeUsername(user.username) === id
+      )
+    ) {
       setAuthStatus("این نام کاربری قبلا ساخته شده است.", "wrong");
       return;
     }
@@ -646,8 +785,9 @@
 
   async function handleLogin(event) {
     event.preventDefault();
-    const email = normalizeEmail(elements.loginEmail.value);
-    const password = elements.loginPassword.value;
+    const form = event.currentTarget;
+    const email = normalizeEmail(form.querySelector("[data-login-email]")?.value);
+    const password = form.querySelector("[data-login-password]")?.value || "";
 
     if (SUPABASE_ENABLED) {
       await loginCloudUser(email, password);
@@ -755,8 +895,9 @@
     }
   }
 
-  function logoutUser() {
+  function logoutUser(event) {
     if (!activeUser) return;
+    const returnView = event?.currentTarget?.closest("#dashboard") ? "dashboard" : "account";
     if (cloudMode && supabaseClient) {
       void supabaseClient.auth.signOut();
     }
@@ -770,7 +911,7 @@
     setAuthStatus("از حساب خارج شدید.", "");
     refreshUserViews();
     renderIdleGame();
-    navigate("account");
+    navigate(returnView);
   }
 
   function refreshUserViews() {
@@ -780,6 +921,7 @@
     renderScores();
     renderAccount();
     renderLeague();
+    renderFlashcards();
   }
 
   function navigate(viewId) {
@@ -794,6 +936,7 @@
     if (viewId === "settings") syncSettingsControls();
     if (viewId === "account") renderAccount();
     if (viewId === "league") renderLeague();
+    if (viewId === "flashcards") renderFlashcards();
     if (viewId === "game" && !quiz) renderIdleGame();
   }
 
@@ -1186,13 +1329,141 @@
     quiz = null;
   }
 
+  function makeGenericAliasSignatureMap(drugs) {
+    const aliasTargets = new Map();
+    const aliases = new Map();
+    const byBrand = groupTopicDrugsByBrand(drugs);
+
+    Object.entries(STATIC_GENERIC_SIGNATURE_ALIASES).forEach(([source, target]) => {
+      const sourceSignature = getStaticGenericSignature(source);
+      const targetSignature = getStaticGenericSignature(target);
+      if (sourceSignature && targetSignature) aliases.set(sourceSignature, targetSignature);
+    });
+
+    byBrand.forEach((group) => {
+      const finalRows = group.filter(isFinalTopicDrugSource);
+      if (!finalRows.length) return;
+
+      const targetSignature = getStaticGenericSignature(
+        chooseBestTopicDrugRecord(finalRows).genericName
+      );
+      if (!targetSignature) return;
+
+      group
+        .filter((drug) => !isFinalTopicDrugSource(drug))
+        .forEach((drug) => {
+          const sourceSignature = getStaticGenericSignature(drug.genericName);
+          if (!sourceSignature || sourceSignature === targetSignature) return;
+          if (!aliasTargets.has(sourceSignature)) aliasTargets.set(sourceSignature, new Set());
+          aliasTargets.get(sourceSignature).add(targetSignature);
+        });
+    });
+
+    aliasTargets.forEach((targets, sourceSignature) => {
+      if (targets.size === 1) aliases.set(sourceSignature, [...targets][0]);
+    });
+
+    return aliases;
+  }
+
+  function makeBrandGenericDrugRows(drugs) {
+    const normalizedRows = [];
+    const byBrand = groupTopicDrugsByBrand(drugs);
+
+    byBrand.forEach((group, brandSignature) => {
+      if (BRAND_GENERIC_EXCLUDED_BRAND_SIGNATURES.has(brandSignature)) return;
+      const candidates = group.filter((drug) => isUsableAnswer(drug.genericName));
+      if (!candidates.length) return;
+
+      const finalRows = candidates.filter(isFinalTopicDrugSource);
+      const genericSignatures = new Set(
+        candidates.map((drug) => getGenericEquivalentSignature(drug.genericName)).filter(Boolean)
+      );
+
+      if (!finalRows.length && genericSignatures.size > 1) return;
+
+      const pool = finalRows.length ? finalRows : candidates;
+      const selected = chooseBestTopicDrugRecord(pool);
+      const selectedSignature = getGenericEquivalentSignature(selected.genericName);
+      const equivalentRows = candidates
+        .filter((drug) => getGenericEquivalentSignature(drug.genericName) === selectedSignature)
+        .sort((a, b) => scoreTopicDrugRecord(b) - scoreTopicDrugRecord(a));
+      const answerSource = equivalentRows.find((drug) => hasPersianText(drug.genericName)) || selected;
+
+      normalizedRows.push({
+        ...selected,
+        genericName: answerSource.genericName,
+      });
+    });
+
+    return normalizedRows;
+  }
+
+  function groupTopicDrugsByBrand(drugs) {
+    const byBrand = new Map();
+    drugs.forEach((drug) => {
+      const brandSignature = getBrandSignature(drug.brandName);
+      if (!brandSignature) return;
+      if (!byBrand.has(brandSignature)) byBrand.set(brandSignature, []);
+      byBrand.get(brandSignature).push(drug);
+    });
+    return byBrand;
+  }
+
+  function chooseBestTopicDrugRecord(drugs) {
+    return [...drugs].sort((a, b) => scoreTopicDrugRecord(b) - scoreTopicDrugRecord(a))[0];
+  }
+
+  function scoreTopicDrugRecord(drug) {
+    const sourceScore = isFinalTopicDrugSource(drug) ? 1000000 : 0;
+    const languageScore = hasPersianText(drug.genericName) ? 5000 : 0;
+    const detailScore = [
+      "indication",
+      "indicationAnswer",
+      "sideEffects",
+      "sideEffectsAnswer",
+      "drugClassification",
+      "dosageForm",
+      "notes",
+    ].reduce((total, key) => total + normalizeOptionText(drug[key]).length, 0);
+
+    return sourceScore + languageScore + detailScore;
+  }
+
+  function isFinalTopicDrugSource(drug) {
+    return !normalizeOptionText(drug.sourceTopic) && !normalizeOptionText(drug.sourceFile);
+  }
+
+  function getBrandSignature(brandName) {
+    return getOptionSignature(brandName);
+  }
+
+  function getStaticGenericSignature(genericName) {
+    return getOptionSignature(genericName);
+  }
+
+  function getGenericEquivalentSignature(genericName) {
+    const signature = getStaticGenericSignature(genericName);
+    return GENERIC_ALIAS_SIGNATURES.get(signature) || signature;
+  }
+
+  function hasPersianText(value) {
+    return /[آ-ی]/.test(String(value || ""));
+  }
+
+  function getAnswerSignature(topic, option) {
+    return topic.id === "brandGeneric"
+      ? getGenericEquivalentSignature(option)
+      : getOptionSignature(option);
+  }
+
   function makeOptionPool(topic) {
     const seen = new Set();
     return topic.data
       .map((drug) => topic.getAnswer(drug))
       .filter(isUsableAnswer)
       .filter((option) => {
-        const signature = getOptionSignature(option);
+        const signature = getAnswerSignature(topic, option);
         if (!signature || seen.has(signature)) return false;
         seen.add(signature);
         return true;
@@ -1201,12 +1472,12 @@
 
   function buildOptions(drug, topic) {
     const correctAnswer = topic.getAnswer(drug);
-    const correctSignature = getOptionSignature(correctAnswer);
+    const correctSignature = getAnswerSignature(topic, correctAnswer);
     const seen = new Set([correctSignature]);
     const distractors = [];
 
     shuffle(optionPools[topic.id]).forEach((option) => {
-      const signature = getOptionSignature(option);
+      const signature = getAnswerSignature(topic, option);
       if (!signature || seen.has(signature)) return;
       seen.add(signature);
       distractors.push(option);
@@ -1294,6 +1565,30 @@
 
     renderRecentGames();
     renderTopMistakes();
+    renderDashboardAuth();
+  }
+
+  function renderDashboardAuth() {
+    if (!elements.dashboardAuthPanel) return;
+    const isLoggedIn = Boolean(activeUser);
+    elements.dashboardAuthGuest.hidden = isLoggedIn;
+    elements.dashboardAuthProfile.hidden = !isLoggedIn;
+
+    if (elements.dashboardUserProfile) clearChildren(elements.dashboardUserProfile);
+    if (!isLoggedIn) return;
+
+    const totalGames = TOPIC_IDS.reduce((sum, topicId) => sum + getTopicStore(topicId).games.length, 0);
+    const totalFlashcards = FLASHCARD_TOPIC_IDS.reduce(
+      (sum, topicId) => sum + getFlashcardTopicStore(topicId).reviewed,
+      0
+    );
+    const bestLeague = getBestLeagueResult(activeUser);
+    elements.dashboardUserProfile.append(
+      makeSummaryTile("کاربر", activeUser.username),
+      makeSummaryTile("بازی‌ها", formatNumber(totalGames)),
+      makeSummaryTile("فلش‌کارت", formatNumber(totalFlashcards)),
+      makeSummaryTile("بهترین لیگ", bestLeague ? formatDecimal(bestLeague.leagueRating) : "0")
+    );
   }
 
   function renderRecentGames() {
@@ -1448,12 +1743,17 @@
 
     const totalGames = TOPIC_IDS.reduce((sum, topicId) => sum + getTopicStore(topicId).games.length, 0);
     const totalMistakes = TOPIC_IDS.reduce((sum, topicId) => sum + getMistakeItems(topicId).length, 0);
+    const totalFlashcards = FLASHCARD_TOPIC_IDS.reduce(
+      (sum, topicId) => sum + getFlashcardTopicStore(topicId).reviewed,
+      0
+    );
     const bestLeague = getBestLeagueResult(activeUser);
 
     elements.userProfile.append(
       makeSummaryTile("نام کاربری", activeUser.username),
       makeSummaryTile("بازی‌ها", formatNumber(totalGames)),
       makeSummaryTile("خطاها", formatNumber(totalMistakes)),
+      makeSummaryTile("فلش‌کارت", formatNumber(totalFlashcards)),
       makeSummaryTile("بهترین لیگ", bestLeague ? formatDecimal(bestLeague.leagueRating) : "0")
     );
 
@@ -1517,6 +1817,601 @@
     }
 
     updateUserChrome();
+  }
+
+  function selectFlashcardTopic(topicId) {
+    if (!FLASHCARD_TOPIC_IDS.includes(topicId)) return;
+    selectedFlashcardTopicId = topicId;
+    selectedFlashcardCategory = "";
+    selectedLeitnerBox = 0;
+    flashcardSession = {
+      topicId,
+      current: null,
+      revealed: false,
+    };
+    renderFlashcards();
+  }
+
+  function selectFlashcardCategory(category) {
+    selectedFlashcardCategory = category || "";
+    selectedLeitnerBox = 0;
+    flashcardSession = {
+      topicId: selectedFlashcardTopicId,
+      current: null,
+      revealed: false,
+    };
+    renderFlashcards();
+  }
+
+  function renderFlashcards() {
+    if (!elements.flashcardFront) return;
+
+    const topic = getFlashcardTopic();
+    syncFlashcardCategoryOptions(topic.id);
+    const deck = getFlashcardDeck(topic.id);
+    const queueCards = getFlashcardQueue(topic.id, deck);
+    const boxedCards = getBoxedFlashcards(topic.id, deck);
+    const hasCurrent =
+      flashcardSession.topicId === topic.id &&
+      flashcardSession.current &&
+      queueCards.some((card) => card.key === flashcardSession.current.key);
+
+    if (!hasCurrent) {
+      setActiveFlashcard(queueCards[0] || null, topic.id);
+    }
+
+    const topicStore = getFlashcardTopicStore(topic.id);
+    const activeCard = flashcardSession.topicId === topic.id ? flashcardSession.current : null;
+    const activeState = activeCard ? getFlashcardCardState(topic.id, activeCard.drugId, activeCard.key) : null;
+    const accuracy = topicStore.reviewed ? Math.round((topicStore.correct / topicStore.reviewed) * 100) : 0;
+
+    elements.flashcardTopicButtons.forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.flashcardTopic === topic.id);
+    });
+    elements.flashcardTopicLabel.textContent = topic.label;
+    elements.flashcardCategoryCount.textContent = `${formatNumber(deck.length)} کارت`;
+    elements.flashcardDue.textContent = formatNumber(boxedCards.length);
+    elements.flashcardCurrentBox.textContent = activeState?.inBox ? formatNumber(activeState.box) : "-";
+    elements.flashcardReviewed.textContent = formatNumber(topicStore.reviewed);
+    elements.flashcardAccuracy.textContent = `${formatNumber(accuracy)}٪`;
+    elements.flashcardCard.classList.toggle("is-revealed", Boolean(activeCard && flashcardSession.revealed));
+    renderFlashcardNavigation(queueCards, activeCard);
+
+    if (!activeCard) {
+      elements.flashcardFrontLabel.textContent = "مرور";
+      elements.flashcardFront.textContent = deck.length
+        ? selectedLeitnerBox
+          ? `جعبه ${formatNumber(selectedLeitnerBox)} خالی است.`
+          : "کارت قابل مرور وجود ندارد."
+        : "برای این موضوع کارت قابل مرور وجود ندارد.";
+      elements.flashcardSubtitle.textContent = deck.length
+        ? "از جعبه‌ها یک مورد را انتخاب کنید یا موضوع دیگری را تمرین کنید."
+        : "داده‌های این موضوع هنوز پاسخ معتبر کافی ندارند.";
+      elements.flashcardAnswer.hidden = true;
+      elements.flashcardBack.textContent = "";
+      elements.flashcardShow.textContent = "نمایش پاسخ";
+      elements.flashcardShow.disabled = true;
+      elements.flashcardWrong.disabled = true;
+      elements.flashcardCorrect.disabled = true;
+    } else {
+      elements.flashcardFrontLabel.textContent = activeCard.frontLabel;
+      elements.flashcardFront.textContent = activeCard.front;
+      elements.flashcardSubtitle.textContent = activeCard.subtitle;
+      elements.flashcardBack.textContent = activeCard.back;
+      elements.flashcardAnswer.hidden = false;
+      elements.flashcardShow.disabled = flashcardSession.revealed;
+      elements.flashcardShow.textContent = flashcardSession.revealed ? "پاسخ نمایش داده شد" : "نمایش پاسخ";
+      elements.flashcardWrong.disabled = !flashcardSession.revealed;
+      elements.flashcardCorrect.disabled = !flashcardSession.revealed;
+    }
+
+    renderLeitnerBoxes(topic.id, deck);
+    renderFlashcardHistory(topic.id, deck);
+    updateUserChrome();
+  }
+
+  function showFlashcardAnswer() {
+    if (!flashcardSession.current) return;
+    flashcardSession.revealed = true;
+    renderFlashcards();
+  }
+
+  function navigateFlashcard(direction) {
+    const topic = getFlashcardTopic();
+    const deck = getFlashcardDeck(topic.id);
+    const queueCards = getFlashcardQueue(topic.id, deck);
+    const activeCard = flashcardSession.topicId === topic.id ? flashcardSession.current : null;
+    const targetCard = pickAdjacentFlashcard(queueCards, activeCard?.key || "", direction);
+    setActiveFlashcard(targetCard, topic.id);
+    renderFlashcards();
+  }
+
+  function gradeFlashcard(isKnown) {
+    const activeCard = flashcardSession.current;
+    if (!activeCard || !flashcardSession.revealed) return;
+
+    const topic = getFlashcardTopic(activeCard.topicId);
+    const topicStore = getFlashcardTopicStore(topic.id);
+    const previous = getFlashcardCardState(topic.id, activeCard.drugId, activeCard.key);
+    const nowIso = new Date().toISOString();
+    const currentBox = previous.inBox ? previous.box : 0;
+    const nextBox = isKnown
+      ? Math.max(0, currentBox - 1)
+      : Math.min(currentBox + 1 || 1, LEITNER_BOX_COUNT);
+    const removedFromBox = isKnown && previous.inBox && currentBox <= 1;
+    const shouldStoreCard = !isKnown || previous.inBox;
+    const nextState = {
+      ...previous,
+      key: activeCard.key,
+      topicId: topic.id,
+      drugId: activeCard.drugId,
+      box: nextBox || 1,
+      dueAt: nowIso,
+      reviewed: previous.reviewed + 1,
+      correct: previous.correct + (isKnown ? 1 : 0),
+      wrong: previous.wrong + (isKnown ? 0 : 1),
+      lastGrade: isKnown ? "correct" : "wrong",
+      lastAt: nowIso,
+    };
+
+    if (removedFromBox) {
+      delete topicStore.cards[activeCard.key];
+    } else if (shouldStoreCard) {
+      topicStore.cards[activeCard.key] = nextState;
+    } else {
+      delete topicStore.cards[activeCard.key];
+    }
+    topicStore.reviewed += 1;
+    topicStore.correct += isKnown ? 1 : 0;
+    topicStore.wrong += isKnown ? 0 : 1;
+    topicStore.history.unshift({
+      id: makeId(),
+      key: activeCard.key,
+      drugId: activeCard.drugId,
+      title: activeCard.front,
+      answer: activeCard.back,
+      grade: isKnown ? "correct" : "wrong",
+      box: nextBox || 0,
+      dueAt: nowIso,
+      createdAt: nowIso,
+    });
+    topicStore.history = topicStore.history.slice(0, 80);
+
+    addActivity({
+      type: "flashcard",
+      label: isKnown
+        ? !previous.inBox
+          ? "مرور موفق فلش‌کارت"
+          : removedFromBox
+          ? "حذف از جعبه خطا"
+          : "بازگشت فلش‌کارت به جعبه قبلی"
+        : "انتقال فلش‌کارت به جعبه بعدی",
+      topicLabel: topic.label,
+      detail: activeCard.front,
+    });
+    saveStore();
+
+    setActiveFlashcard(pickNextFlashcard(topic.id, activeCard.key), topic.id);
+    renderFlashcards();
+  }
+
+  function setActiveFlashcard(card, topicId = selectedFlashcardTopicId) {
+    flashcardSession = {
+      topicId,
+      current: card,
+      revealed: false,
+    };
+  }
+
+  function pickNextFlashcard(topicId, excludeKey = "") {
+    const deck = getFlashcardDeck(topicId);
+    if (selectedLeitnerBox) {
+      const selectedBoxCards = getBoxedFlashcards(topicId, deck).filter(
+        (card) => card.state.box === selectedLeitnerBox
+      );
+      return selectedBoxCards.find((card) => card.key !== excludeKey) || selectedBoxCards[0] || null;
+    }
+    return pickNextDeckFlashcard(deck, excludeKey);
+  }
+
+  function pickNextDeckFlashcard(deck, currentKey = "") {
+    if (!deck.length) return null;
+    const currentIndex = deck.findIndex((card) => card.key === currentKey);
+    if (currentIndex < 0) return deck[0];
+    return deck[(currentIndex + 1) % deck.length];
+  }
+
+  function pickAdjacentFlashcard(cards, currentKey = "", direction = 1) {
+    if (!cards.length) return null;
+    const currentIndex = cards.findIndex((card) => card.key === currentKey);
+    if (currentIndex < 0) return cards[0];
+    const nextIndex = (currentIndex + direction + cards.length) % cards.length;
+    return cards[nextIndex];
+  }
+
+  function renderFlashcardNavigation(cards, activeCard) {
+    const total = cards.length;
+    const activeIndex = activeCard ? cards.findIndex((card) => card.key === activeCard.key) : -1;
+    const position = activeIndex >= 0 ? activeIndex + 1 : 0;
+    const canMove = total > 1 && activeIndex >= 0;
+
+    elements.flashcardPosition.textContent = `${formatNumber(position)} از ${formatNumber(total)}`;
+    elements.flashcardPrev.disabled = !canMove;
+    elements.flashcardNext.disabled = !canMove;
+  }
+
+  function getFlashcardDeck(topicId) {
+    const topic = getFlashcardTopic(topicId);
+    const filteredDrugs = topic.data.filter((drug) => isDrugInSelectedFlashcardCategory(drug));
+    return normalizeFlashcardDrugsForTopic(topic, filteredDrugs)
+      .map((drug) => makeFlashcardModel(topic, drug))
+      .filter(Boolean);
+  }
+
+  function isDrugInSelectedFlashcardCategory(drug) {
+    if (!selectedFlashcardCategory) return true;
+    return getDrugCategory(drug) === selectedFlashcardCategory;
+  }
+
+  function syncFlashcardCategoryOptions(topicId) {
+    const select = elements.flashcardCategory;
+    const topic = getFlashcardTopic(topicId);
+    const categories = getFlashcardCategories(topic);
+    const hasSelectedCategory = categories.some((category) => category.value === selectedFlashcardCategory);
+
+    if (selectedFlashcardCategory && !hasSelectedCategory) {
+      selectedFlashcardCategory = "";
+      selectedLeitnerBox = 0;
+      setActiveFlashcard(null, topic.id);
+    }
+
+    clearChildren(select);
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    const totalCards = countFlashcardCardsForTopic(topic);
+    allOption.textContent = `همه دسته‌ها (${formatNumber(totalCards)})`;
+    select.append(allOption);
+
+    categories.forEach((category) => {
+      const option = document.createElement("option");
+      option.value = category.value;
+      option.textContent = `${category.value} (${formatNumber(category.count)})`;
+      select.append(option);
+    });
+
+    select.value = selectedFlashcardCategory;
+  }
+
+  function getFlashcardCategories(topic) {
+    const categories = new Map();
+
+    topic.data.forEach((drug) => {
+      const model = makeFlashcardModel(topic, drug);
+      if (!model) return;
+      const category = getDrugCategory(drug);
+      if (!category) return;
+
+      if (topic.id === "brandGeneric") {
+        categories.set(category, (categories.get(category) || 0) + 1);
+        return;
+      }
+
+      const generics = categories.get(category) || new Set();
+      generics.add(getGenericFlashcardSignature(drug.genericName));
+      categories.set(category, generics);
+    });
+
+    return [...categories.entries()]
+      .map(([value, count]) => ({
+        value,
+        count: count instanceof Set ? count.size : count,
+      }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+  }
+
+  function countFlashcardCardsForTopic(topic) {
+    return normalizeFlashcardDrugsForTopic(topic, topic.data)
+      .map((drug) => makeFlashcardModel(topic, drug))
+      .filter(Boolean).length;
+  }
+
+  function getDrugCategory(drug) {
+    const sourceTopic = normalizeOptionText(drug?.sourceTopic || drug?.sourceFile?.replace(/\.docx$/i, ""));
+    if (sourceTopic) return getSourceTopicLabel(sourceTopic);
+
+    const classification = normalizeOptionText(drug?.drugClassification);
+    return getCategoryFromClassification(classification);
+  }
+
+  function getSourceTopicLabel(sourceTopic) {
+    const key = sourceTopic.toLowerCase();
+    const labels = {
+      "cardiovascular + dyslipidemia": "قلب، فشار خون و چربی خون",
+      "cns-1": "داروهای عصبی CNS-1",
+      "cns-2": "داروهای عصبی CNS-2",
+      infection: "ضد عفونت‌ها",
+      endo: "غدد، دیابت و هورمون‌ها",
+      gi: "گوارش",
+      respiratory: "تنفسی",
+      sedative: "خواب‌آورها و آرام‌بخش‌ها",
+    };
+    return labels[key] || sourceTopic;
+  }
+
+  function getCategoryFromClassification(classification) {
+    const value = classification.toLowerCase();
+    if (!value) return "سایر/بدون دسته کلی";
+
+    if (/(ace inhibitor|arb|angiotensin|beta|calcium channel|diuretic|antihypertensive|antiplatelet|anticoagulant|thrombolytic|statin|lipid|p2y12|nitrate|antiarrhythmic)/i.test(value)) {
+      return "قلب، فشار خون و چربی خون";
+    }
+    if (/(benzodiazepine|ssri|snri|antidepressant|antipsychotic|antiepileptic|anticonvulsant|hypnotic|sedative|cns|dopamine|parkinson|migraine|opioid|anxiolytic)/i.test(value)) {
+      return "داروهای عصبی CNS";
+    }
+    if (/(antibiotic|antifungal|antiviral|anthelmintic|antimicrobial|macrolide|quinolone|penicillin|cephalosporin|azole|polyene)/i.test(value)) {
+      return "ضد عفونت‌ها";
+    }
+    if (/(antidiabetic|insulin|biguanide|thyroid|hormone|corticosteroid|glucocorticoid|bisphosphonate|osteoporosis|somatostatin|growth hormone)/i.test(value)) {
+      return "غدد، دیابت و هورمون‌ها";
+    }
+    if (/(h2 receptor|ppi|proton pump|antiemetic|prokinetic|laxative|antacid|pancreatic|gastro|ibs)/i.test(value)) {
+      return "گوارش";
+    }
+    if (/(bronchodilator|inhaled|asthma|copd|respiratory|leukotriene|anticholinergic)/i.test(value)) {
+      return "تنفسی";
+    }
+    if (/(immunosuppressant|biologic|monoclonal|anticancer|chemotherapy|antineoplastic|rheumatologic)/i.test(value)) {
+      return "ایمنی، روماتولوژی و سرطان";
+    }
+    if (/(dermatologic|retinoid|acne|psoriasis|topical)/i.test(value)) {
+      return "پوست";
+    }
+    return "سایر/بدون دسته کلی";
+  }
+
+  function normalizeFlashcardDrugsForTopic(topic, drugs) {
+    if (topic.id === "brandGeneric") return drugs;
+
+    const byGeneric = new Map();
+    drugs.forEach((drug) => {
+      const genericKey = getGenericFlashcardSignature(drug.genericName);
+      if (!genericKey) return;
+      const previous = byGeneric.get(genericKey);
+      if (!previous || scoreGenericFlashcardSource(topic.id, drug) > scoreGenericFlashcardSource(topic.id, previous)) {
+        byGeneric.set(genericKey, drug);
+      }
+    });
+    return [...byGeneric.values()];
+  }
+
+  function scoreGenericFlashcardSource(topicId, drug) {
+    const fullText = topicId === "indication" ? drug.indication : drug.sideEffects;
+    const answer = topicId === "indication" ? drug.indicationAnswer : drug.sideEffectsAnswer;
+    return normalizeOptionText(fullText || "").length * 2 + normalizeOptionText(answer || "").length;
+  }
+
+  function getGenericFlashcardSignature(genericName) {
+    return getGenericEquivalentSignature(genericName);
+  }
+
+  function makeFlashcardModel(topic, drug) {
+    const answer = topic.getAnswer(drug);
+    if (!drug?.id || !isUsableAnswer(answer)) return null;
+
+    const brandName = drug.brandName || topic.getName(drug);
+    const genericName = drug.genericName || "";
+    const genericKey = getGenericFlashcardSignature(genericName);
+    const key =
+      topic.id === "brandGeneric"
+        ? makeFlashcardKey(topic.id, drug.id)
+        : makeFlashcardKey(topic.id, `generic:${genericKey}`);
+
+    if (topic.id === "brandGeneric") {
+      return {
+        key,
+        topicId: topic.id,
+        drugId: drug.id,
+        frontLabel: "نام تجاری",
+        front: `نام ژنریک ${brandName} چیست؟`,
+        subtitle: drug.drugClassification || "",
+        back: answer,
+      };
+    }
+
+    if (topic.id === "indication") {
+      if (!genericName || !genericKey) return null;
+      return {
+        key,
+        topicId: topic.id,
+        drugId: `generic:${genericKey}`,
+        frontLabel: "اندیکاسیون",
+        front: `کاربرد اصلی ${genericName} چیست؟`,
+        subtitle: getDrugCategory(drug),
+        back: getFullFlashcardAnswer(topic.id, drug, answer),
+      };
+    }
+
+    if (topic.id === "sideEffects") {
+      if (!genericName || !genericKey) return null;
+      return {
+        key,
+        topicId: topic.id,
+        drugId: `generic:${genericKey}`,
+        frontLabel: "عوارض",
+        front: `عوارض مهم ${genericName} چیست؟`,
+        subtitle: getDrugCategory(drug),
+        back: getFullFlashcardAnswer(topic.id, drug, answer),
+      };
+    }
+
+    return null;
+  }
+
+  function getFlashcardQueue(topicId, deck = getFlashcardDeck(topicId)) {
+    if (selectedLeitnerBox) {
+      return getBoxedFlashcards(topicId, deck).filter((card) => card.state.box === selectedLeitnerBox);
+    }
+
+    return deck.map((card) => ({
+      ...card,
+      state: getFlashcardCardState(topicId, card.drugId, card.key),
+    }));
+  }
+
+  function getFullFlashcardAnswer(topicId, drug, fallback) {
+    const fullValue =
+      topicId === "indication"
+        ? drug.indication
+        : topicId === "sideEffects"
+        ? drug.sideEffects
+        : "";
+    return makeReadableFlashcardAnswer(fullValue || fallback, fallback);
+  }
+
+  function makeReadableFlashcardAnswer(value, fallback) {
+    const items = String(value || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split(/\n|[؛;]/)
+      .flatMap(splitLongFlashcardItem)
+      .map(cleanFlashcardItem)
+      .filter(Boolean)
+      .filter(uniqueByOptionSignature)
+      .slice(0, 10);
+
+    if (items.length) return items.join("، ");
+    return normalizeOptionText(fallback);
+  }
+
+  function splitLongFlashcardItem(value) {
+    const text = normalizeOptionText(value);
+    if (text.length <= 80) return [text];
+    return text.split(/\s،\s|,\s/).map((item) => item.trim());
+  }
+
+  function cleanFlashcardItem(value) {
+    let text = normalizeOptionText(value)
+      .replace(/^[\d۰-۹]+[.)-]?\s*/, "")
+      .replace(/^[•\-–—*]\s*/, "")
+      .replace(/بیماری\s*IIH/g, "بیماری IIH")
+      .replace(/^فرم\s+خوراکی\s+(?:آن|ان)\s+برای\s+(.+)$/i, "$1 (فرم خوراکی)")
+      .trim();
+
+    if (!text || /^\([^)]*\)$/.test(text)) return "";
+    if (/^[A-Za-z][A-Za-z0-9 -]*\s*:/.test(text)) return "";
+    if (/^(عوارض مهم|مشابه مابقی|سایر کاربرد|کشورها)\b/.test(text)) return "";
+
+    text = text
+      .replace(/\(([^)]*)\)/g, (_match, inner) => {
+        const note = normalizeOptionText(inner);
+        if (!note || /خط اول نیست|به هیچ عنوان|off-?label|کشورها|طبق پروتکل|در کنار/.test(note)) return "";
+        return note.length <= 32 ? `(${note})` : "";
+      })
+      .replace(/\s*(?:به علت|بدلیل|به همین خاطر|در دوز|برای مسمومیت|در افرادی)\s+.+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!text || /^\([^)]*\)$/.test(text)) return "";
+    if (text.length > 95) {
+      text = text.split(/\s،\s|,\s|\. /)[0].trim();
+    }
+    return text;
+  }
+
+  function uniqueByOptionSignature(value, index, array) {
+    const signature = getOptionSignature(value);
+    return Boolean(signature) && array.findIndex((item) => getOptionSignature(item) === signature) === index;
+  }
+
+  function getBoxedFlashcards(topicId, deck = getFlashcardDeck(topicId)) {
+    return deck
+      .map((card) => ({
+        ...card,
+        state: getFlashcardCardState(topicId, card.drugId, card.key),
+      }))
+      .filter((card) => card.state.inBox)
+      .sort(compareFlashcards);
+  }
+
+  function compareFlashcards(a, b) {
+    if ((b.state.box || 0) !== (a.state.box || 0)) return (b.state.box || 0) - (a.state.box || 0);
+    if ((b.state.wrong || 0) !== (a.state.wrong || 0)) return (b.state.wrong || 0) - (a.state.wrong || 0);
+    return Number(new Date(a.state.lastAt || 0)) - Number(new Date(b.state.lastAt || 0));
+  }
+
+  function renderLeitnerBoxes(topicId, deck) {
+    clearChildren(elements.leitnerBoxes);
+    const boxes = Array.from({ length: LEITNER_BOX_COUNT }, () => ({ total: 0, wrong: 0 }));
+
+    deck.forEach((card) => {
+      const state = getFlashcardCardState(topicId, card.drugId, card.key);
+      if (!state.inBox) return;
+      const boxIndex = clamp(Number(state.box || 1), 1, LEITNER_BOX_COUNT) - 1;
+      boxes[boxIndex].total += 1;
+      boxes[boxIndex].wrong += state.wrong || 0;
+    });
+
+    boxes.forEach((box, index) => {
+      const boxNumber = index + 1;
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "leitner-box";
+      card.classList.toggle("is-active", selectedLeitnerBox === boxNumber);
+      card.addEventListener("click", () => toggleLeitnerBox(boxNumber));
+
+      const title = document.createElement("strong");
+      title.textContent = `جعبه ${formatNumber(boxNumber)}`;
+      const label = document.createElement("span");
+      label.textContent = LEITNER_BOX_LABELS[index];
+      const stats = document.createElement("small");
+      stats.textContent = `${formatNumber(box.total)} کارت | ${formatNumber(box.wrong)} خطا`;
+      card.append(title, label, stats);
+      elements.leitnerBoxes.append(card);
+    });
+  }
+
+  function toggleLeitnerBox(boxNumber) {
+    selectedLeitnerBox = selectedLeitnerBox === boxNumber ? 0 : boxNumber;
+    const topic = getFlashcardTopic();
+    setActiveFlashcard(pickNextFlashcard(topic.id), topic.id);
+    renderFlashcards();
+  }
+
+  function renderFlashcardHistory(topicId, deck) {
+    clearChildren(elements.flashcardHistory);
+    const boxedCards = getBoxedFlashcards(topicId, deck);
+    const visibleCards = selectedLeitnerBox
+      ? boxedCards.filter((card) => card.state.box === selectedLeitnerBox)
+      : boxedCards.slice(0, 8);
+
+    if (!visibleCards.length) {
+      elements.flashcardHistory.append(
+        emptyState(
+          selectedLeitnerBox
+            ? `جعبه ${formatNumber(selectedLeitnerBox)} خالی است.`
+            : "هنوز ایراد یادگیری برای این موضوع ثبت نشده است."
+        )
+      );
+      return;
+    }
+
+    visibleCards.forEach((card) => {
+      const row = document.createElement("div");
+      row.className = "mini-row";
+      const copy = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = card.front;
+      const detail = document.createElement("small");
+      detail.textContent = `پاسخ: ${card.back} | جعبه ${formatNumber(card.state.box)} | ${formatDate(card.state.lastAt)}`;
+      copy.append(title, detail);
+      const action = makeActionButton("تمرین", "secondary-action flashcard-review-action", () => {
+        selectedLeitnerBox = card.state.box;
+        setActiveFlashcard(card, topicId);
+        renderFlashcards();
+      });
+      row.append(copy, action);
+      elements.flashcardHistory.append(row);
+    });
   }
 
   function makeLeagueRow(entry, rank, compact = false) {
@@ -1775,19 +2670,33 @@
     elements.currentUser.textContent = label;
     elements.accountUser.textContent = label;
     elements.leagueUser.textContent = label;
+    if (elements.dashboardUser) elements.dashboardUser.textContent = label;
+    if (elements.flashcardUser) elements.flashcardUser.textContent = label;
   }
 
   function clearAuthForms() {
-    elements.loginEmail.value = "";
-    elements.loginPassword.value = "";
-    elements.signupUsername.value = "";
-    elements.signupEmail.value = "";
-    elements.signupPassword.value = "";
+    elements.loginEmails.forEach((input) => {
+      input.value = "";
+    });
+    elements.loginPasswords.forEach((input) => {
+      input.value = "";
+    });
+    elements.signupUsernames.forEach((input) => {
+      input.value = "";
+    });
+    elements.signupEmails.forEach((input) => {
+      input.value = "";
+    });
+    elements.signupPasswords.forEach((input) => {
+      input.value = "";
+    });
   }
 
   function setAuthStatus(message, variant) {
-    elements.authStatus.textContent = message;
-    elements.authStatus.className = variant ? `auth-status ${variant}` : "auth-status";
+    elements.authStatusMessages.forEach((status) => {
+      status.textContent = message;
+      status.className = variant ? `auth-status ${variant}` : "auth-status";
+    });
   }
 
   function exportReport() {
@@ -1814,6 +2723,7 @@
           },
         ])
       ),
+      flashcards: store.flashcards,
     };
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -1845,10 +2755,49 @@
     return TOPICS[topicId] || TOPICS.timing;
   }
 
+  function getFlashcardTopic(topicId = selectedFlashcardTopicId) {
+    const safeTopicId = FLASHCARD_TOPIC_IDS.includes(topicId) ? topicId : "brandGeneric";
+    return TOPICS[safeTopicId];
+  }
+
   function getTopicStore(topicId = selectedTopicId) {
     const safeTopicId = getTopic(topicId).id;
     if (!store.topics[safeTopicId]) store.topics[safeTopicId] = makeEmptyTopicStore();
     return store.topics[safeTopicId];
+  }
+
+  function getFlashcardTopicStore(topicId = selectedFlashcardTopicId) {
+    const safeTopicId = getFlashcardTopic(topicId).id;
+    if (!store.flashcards) store.flashcards = makeEmptyFlashcardStore();
+    if (!store.flashcards.topics || typeof store.flashcards.topics !== "object") {
+      store.flashcards = normalizeFlashcardStore(store.flashcards);
+    }
+    if (!store.flashcards.topics[safeTopicId]) {
+      store.flashcards.topics[safeTopicId] = makeEmptyFlashcardTopicStore();
+    }
+    return store.flashcards.topics[safeTopicId];
+  }
+
+  function getFlashcardCardState(topicId, drugId, key = makeFlashcardKey(topicId, drugId)) {
+    const saved = getFlashcardTopicStore(topicId).cards[key];
+    const inBox = Boolean(saved);
+    return {
+      key,
+      topicId,
+      drugId,
+      inBox,
+      box: inBox ? clamp(Number(saved?.box || 1), 1, LEITNER_BOX_COUNT) : 0,
+      dueAt: saved?.dueAt || "",
+      reviewed: Number(saved?.reviewed || 0),
+      correct: Number(saved?.correct || 0),
+      wrong: Number(saved?.wrong || 0),
+      lastGrade: saved?.lastGrade || "",
+      lastAt: saved?.lastAt || "",
+    };
+  }
+
+  function makeFlashcardKey(topicId, drugId) {
+    return `${topicId}:${drugId}`;
   }
 
   function makeSummaryTile(label, value) {

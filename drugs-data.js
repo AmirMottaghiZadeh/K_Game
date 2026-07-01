@@ -1689,12 +1689,12 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-176",
-    "name": "انتی اسیدانتی اسید",
-    "pname": "انتی اسیدانتی اسید",
+    "name": "منیزیم هیدروکسید",
+    "pname": "منیزیم هیدروکسید",
     "dosageForm": "Susp 8% (400mg/5ml)",
     "consumptionTime": "1-3h بعد از غذا و هنگام خواب",
     "consumptionTimeSorted": "با غذا",
-    "brandName": "MOM\nLaxigel\nLax-mel"
+    "brandName": "MOM\nLaxigel\nLaxmel"
   },
   {
     "id": "drug-177",
@@ -1716,12 +1716,12 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-179",
-    "name": "H2 BlockerH2 BlockerCimetidine",
-    "pname": "H2 BlockerH2 BlockerCimetidine",
+    "name": "Cimetidine",
+    "pname": "سایمتیدین",
     "dosageForm": "Tablet 200mg\nAmpule 200mg/2ml",
     "consumptionTime": "بعد از غذا",
     "consumptionTimeSorted": "با غذا",
-    "brandName": "Tagament"
+    "brandName": "Tagamet"
   },
   {
     "id": "drug-180",
@@ -1733,8 +1733,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-181",
-    "name": "PPIPPIOmeprazole",
-    "pname": "PPIPPIOmeprazole",
+    "name": "Omeprazole",
+    "pname": "امپرازول",
     "dosageForm": "EC Capsule 20mg",
     "consumptionTime": "QD: نیم ساعت قبل صبحانه\nBD: نیم ساعت قبل صبحانه و شام",
     "consumptionTimeSorted": "فرقی نمی‌کند",
@@ -1751,8 +1751,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-183",
-    "name": "PPIPPIPantoprazole",
-    "pname": "PPIPPIPantoprazole",
+    "name": "Pantoprazole",
+    "pname": "پنتوپرازول",
     "dosageForm": "EC Tablet 20-40mg\nEC Capsule 20-40mg\nInjection (IV) 40mg",
     "consumptionTime": "QD: نیم ساعت قبل صبحانه\nBD: نیم ساعت قبل صبحانه و شام",
     "consumptionTimeSorted": "فرقی نمی‌کند",
@@ -1778,8 +1778,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-186",
-    "name": "PUDPUDSucralfate",
-    "pname": "PUDPUDSucralfate",
+    "name": "Sucralfate",
+    "pname": "سوکرالفیت",
     "dosageForm": "Tablet 500mg",
     "consumptionTime": "قبل از غذا و خواب",
     "consumptionTimeSorted": "بدون غذا",
@@ -1804,7 +1804,7 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-189",
-    "name": "IBDIBDAminosalicylate",
+    "name": "Aminosalicylate",
     "pname": "اسپرین",
     "dosageForm": "Tablet 500mg\nEnema 2g\nSupp 400mg\nSupp 500mg ایرانی",
     "consumptionTime": "قبل از غذا و هنگام خواب با مقدار کافی اب",
@@ -1850,7 +1850,7 @@ window.DRUGS_DATA = [
   {
     "id": "drug-194",
     "name": "Domperidone",
-    "pname": "ضد تهوعضد تهوعDomperidone",
+    "pname": "دومپریدون",
     "dosageForm": "Tablet 10mg\nSyrup 5mg/5ml",
     "consumptionTime": "قبل از غذا",
     "consumptionTimeSorted": "بدون غذا",
@@ -1902,8 +1902,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-200",
-    "name": "ضد اسهالضد اسهالDiphenoxylate",
-    "pname": "ضد اسهالضد اسهالDiphenoxylate",
+    "name": "Diphenoxylate",
+    "pname": "دیفنوکسیلات",
     "dosageForm": "Tablet\n2.5mg+0.025mg Atropine",
     "consumptionTime": "درصورت تحریک معده با غذا",
     "consumptionTimeSorted": "با غذا",
@@ -1945,7 +1945,7 @@ window.DRUGS_DATA = [
   {
     "id": "drug-205",
     "name": "Lactulose",
-    "pname": "ملینملینLactulose",
+    "pname": "لاکتولوز",
     "dosageForm": "Syrup 10g/15ml",
     "consumptionTime": "بهترین زمان مصرف ناشتا است.",
     "consumptionTimeSorted": "بدون غذا"
@@ -1987,8 +1987,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-210",
-    "name": "انتی اسپاسمانتی اسپاسمDicyclomine",
-    "pname": "انتی اسپاسمانتی اسپاسمDicyclomine",
+    "name": "Dicyclomine",
+    "pname": "دی‌سیکلومین",
     "dosageForm": "Tablet 10mg\nElexir 10mg/ 5ml\nAmpule 20mg/2ml(IM)",
     "consumptionTime": "در بزرگسالان با یا بدون غذا\nدر کودکان قبل از غذا",
     "consumptionTimeSorted": "فرقی نمی‌کند"
@@ -2013,8 +2013,8 @@ window.DRUGS_DATA = [
   },
   {
     "id": "drug-213",
-    "name": "انزیم گوارشیانزیم گوارشیPancreatin",
-    "pname": "انزیم گوارشیانزیم گوارشیPancreatin",
+    "name": "Pancreatin",
+    "pname": "پانکراتین",
     "dosageForm": "Tablet EC 10000-25000 unit",
     "consumptionTime": "همراه غذا",
     "consumptionTimeSorted": "فرقی نمی‌کند",

@@ -1,4 +1,4 @@
-const CACHE_NAME = "karamozi-arseh-v10";
+const CACHE_NAME = "karamozi-arseh-v25";
 const APP_ASSETS = [
   "./",
   "./index.html",

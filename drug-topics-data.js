@@ -4467,7 +4467,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-253",
     "brandName": "Imipramine",
-    "genericName": "TCAs",
+    "genericName": "Imipramine",
     "sideEffects": "",
     "sideEffectsAnswer": "",
     "indication": "",
@@ -4482,7 +4482,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-254",
     "brandName": "Desipramine",
-    "genericName": "TCAs",
+    "genericName": "Desipramine",
     "sideEffects": "",
     "sideEffectsAnswer": "",
     "indication": "",
@@ -4497,7 +4497,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-255",
     "brandName": "Nortriptyline",
-    "genericName": "TCAs",
+    "genericName": "Nortriptyline",
     "sideEffects": "",
     "sideEffectsAnswer": "",
     "indication": "",
@@ -9447,32 +9447,6 @@ window.DRUG_TOPIC_DATA = [
     "sourceFile": "Endo.docx"
   },
   {
-    "id": "topic-drug-538",
-    "brandName": "Linagliptin",
-    "genericName": "M",
-    "sideEffects": "",
-    "sideEffectsAnswer": "",
-    "indication": "",
-    "indicationAnswer": "",
-    "dosageForm": "",
-    "drugClassification": "Tab:\n2.5 + 500 mg\n2.5 + 1000 mg",
-    "sourceTopic": "Endo",
-    "sourceFile": "Endo.docx"
-  },
-  {
-    "id": "topic-drug-539",
-    "brandName": "etfo in",
-    "genericName": "M",
-    "sideEffects": "",
-    "sideEffectsAnswer": "",
-    "indication": "",
-    "indicationAnswer": "",
-    "dosageForm": "",
-    "drugClassification": "Tab:\n2.5 + 500 mg\n2.5 + 1000 mg",
-    "sourceTopic": "Endo",
-    "sourceFile": "Endo.docx"
-  },
-  {
     "id": "topic-drug-540",
     "brandName": "Empagliflozin",
     "genericName": "Synoripa",
@@ -9917,7 +9891,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-568",
     "brandName": "MOM",
-    "genericName": "انتی اسیدانتی اسید",
+    "genericName": "منیزیم هیدروکسید",
     "sideEffects": "اسهال",
     "sideEffectsAnswer": "اسهال",
     "indication": "",
@@ -9935,43 +9909,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-569",
     "brandName": "Laxigel",
-    "genericName": "انتی اسیدانتی اسید",
-    "sideEffects": "اسهال",
-    "sideEffectsAnswer": "اسهال",
-    "indication": "",
-    "indicationAnswer": "",
-    "dosageForm": "Susp 8% (400mg/5ml)",
-    "drugClassification": "",
-    "dosing": "انتی اسید :\n5-15ml q4hr\nMax:4 doses/day\nیبوست:\n30-60ml/day",
-    "foodRelation": "1-3h بعد از غذا و هنگام خواب",
-    "pregnancyBreastfeeding": "B(safe)",
-    "doseAdjustment": "در GFR کمتر از 30",
-    "notes": "MOM= شیر منیزی= ملین اسموتیک ( شروع اثر 6h)\nPRNو مصرف موقت این داروهای انتی اسید تنها 3-7 روز صورت بگیرد.\n-برای یبوست زیر دو سال و به عنوان انتی اسید زیر 12 سال توصیه نمی شود.",
-    "sourceTopic": "GI",
-    "sourceFile": "GI.docx"
-  },
-  {
-    "id": "topic-drug-570",
-    "brandName": "Lax",
-    "genericName": "انتی اسیدانتی اسید",
-    "sideEffects": "اسهال",
-    "sideEffectsAnswer": "اسهال",
-    "indication": "",
-    "indicationAnswer": "",
-    "dosageForm": "Susp 8% (400mg/5ml)",
-    "drugClassification": "",
-    "dosing": "انتی اسید :\n5-15ml q4hr\nMax:4 doses/day\nیبوست:\n30-60ml/day",
-    "foodRelation": "1-3h بعد از غذا و هنگام خواب",
-    "pregnancyBreastfeeding": "B(safe)",
-    "doseAdjustment": "در GFR کمتر از 30",
-    "notes": "MOM= شیر منیزی= ملین اسموتیک ( شروع اثر 6h)\nPRNو مصرف موقت این داروهای انتی اسید تنها 3-7 روز صورت بگیرد.\n-برای یبوست زیر دو سال و به عنوان انتی اسید زیر 12 سال توصیه نمی شود.",
-    "sourceTopic": "GI",
-    "sourceFile": "GI.docx"
-  },
-  {
-    "id": "topic-drug-571",
-    "brandName": "mel",
-    "genericName": "انتی اسیدانتی اسید",
+    "genericName": "منیزیم هیدروکسید",
     "sideEffects": "اسهال",
     "sideEffectsAnswer": "اسهال",
     "indication": "",
@@ -10024,8 +9962,8 @@ window.DRUG_TOPIC_DATA = [
   },
   {
     "id": "topic-drug-574",
-    "brandName": "Tagament",
-    "genericName": "H2 BlockerH2 BlockerCimetidine",
+    "brandName": "Tagamet",
+    "genericName": "Cimetidine",
     "sideEffects": "اثرات انتی اندروژنی( ژنیکوماستی، کاهش قدرت جنسی، در زنان افزایش پرولاکتین)",
     "sideEffectsAnswer": "اثرات انتی اندروژنی( ژنیکوماستی، کاهش قدرت جنسی، در زنان افزایش پرولاکتین",
     "indication": "",
@@ -10043,7 +9981,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-575",
     "brandName": "Ultop",
-    "genericName": "PPIPPIOmeprazole",
+    "genericName": "Omeprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10061,7 +9999,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-576",
     "brandName": "Pilosec",
-    "genericName": "PPIPPIOmeprazole",
+    "genericName": "Omeprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10079,7 +10017,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-577",
     "brandName": "مرازول",
-    "genericName": "PPIPPIOmeprazole",
+    "genericName": "Omeprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10151,7 +10089,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-581",
     "brandName": "Nolpaza",
-    "genericName": "PPIPPIPantoprazole",
+    "genericName": "Pantoprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10169,7 +10107,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-582",
     "brandName": "Pantosec",
-    "genericName": "PPIPPIPantoprazole",
+    "genericName": "Pantoprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10187,7 +10125,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-583",
     "brandName": "Pantozol",
-    "genericName": "PPIPPIPantoprazole",
+    "genericName": "Pantoprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10205,7 +10143,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-584",
     "brandName": "پنتومید",
-    "genericName": "PPIPPIPantoprazole",
+    "genericName": "Pantoprazole",
     "sideEffects": "-مصرف بیش از 1 سال : کاهش جذب Ca و Mg\n-مصرف بیش از 2 سال: کاهشB12\nعفونت گوارشی و اسپیراسیون نومونی ( به دلیل کاهش اسید معده که یک سد دفاعی است.)\n-در صورت استفاده بیش از 6 ماه به صورت تدریجی قطع شود.( ریسک افزایش اسید معده)",
     "sideEffectsAnswer": "کاهش جذب Ca و Mg، کاهشB12، عفونت گوارشی",
     "indication": "",
@@ -10313,7 +10251,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-590",
     "brandName": "Carafate",
-    "genericName": "PUDPUDSucralfate",
+    "genericName": "Sucralfate",
     "sideEffects": "کمردرد\nسرگیجه و خواب الودگی\nیبوست، خشکی دهان",
     "sideEffectsAnswer": "درد، خواب‌آلودگی، یبوست",
     "indication": "",
@@ -10367,7 +10305,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-593",
     "brandName": "Mesalamine",
-    "genericName": "IBDIBDAminosalicylate",
+    "genericName": "Aminosalicylate",
     "sideEffects": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.\nسردرد\nگوارشی: اروغ زدن، درد شکمی، یبوست\nتنفسی: نازوفارنژیت",
     "sideEffectsAnswer": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.، سردرد",
     "indication": "",
@@ -10385,7 +10323,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-594",
     "brandName": "Asacol",
-    "genericName": "IBDIBDAminosalicylate",
+    "genericName": "Aminosalicylate",
     "sideEffects": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.\nسردرد\nگوارشی: اروغ زدن، درد شکمی، یبوست\nتنفسی: نازوفارنژیت",
     "sideEffectsAnswer": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.، سردرد",
     "indication": "",
@@ -10403,7 +10341,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-595",
     "brandName": "Pentasa",
-    "genericName": "IBDIBDAminosalicylate",
+    "genericName": "Aminosalicylate",
     "sideEffects": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.\nسردرد\nگوارشی: اروغ زدن، درد شکمی، یبوست\nتنفسی: نازوفارنژیت",
     "sideEffectsAnswer": "چون در ساختارش سولفاپیریدین ندارد، فاقد عوارض سولفاسالازین است.، سردرد",
     "indication": "",
@@ -10559,7 +10497,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-604",
     "brandName": "Motilium",
-    "genericName": "ضد تهوعضد تهوعDomperidone",
+    "genericName": "Domperidone",
     "sideEffects": "QT Prolongation",
     "sideEffectsAnswer": "QT Prolongation",
     "indication": "",
@@ -10577,7 +10515,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-605",
     "brandName": "Motilover",
-    "genericName": "ضد تهوعضد تهوعDomperidone",
+    "genericName": "Domperidone",
     "sideEffects": "QT Prolongation",
     "sideEffectsAnswer": "QT Prolongation",
     "indication": "",
@@ -10701,7 +10639,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-612",
     "brandName": "Lomotil",
-    "genericName": "ضد اسهالضد اسهالDiphenoxylate",
+    "genericName": "Diphenoxylate",
     "sideEffects": "عوارض سداتیو به علت عبور از BBB",
     "sideEffectsAnswer": "عوارض سداتیو به علت عبور از BBB",
     "indication": "",
@@ -10749,22 +10687,6 @@ window.DRUG_TOPIC_DATA = [
     "pregnancyBreastfeeding": "C\n(راجع به بارداری اطلاعات محدود است).\nدر شیردهی با احتیاط",
     "doseAdjustment": "عدم نیاز به تنظیم دوز",
     "notes": "قابل استفاده در در نوزادان و کودکان\nبرای عکس برداری GI در کنار بیزاکودیل\nنفخ ایجاد نمی کند.\nاثربخشی بعد 2-4 روز\nقابلیت مصرف تا 6 ماه\nطعم بد",
-    "sourceTopic": "GI",
-    "sourceFile": "GI.docx"
-  },
-  {
-    "id": "topic-drug-615",
-    "brandName": "lax",
-    "genericName": "Senna",
-    "sideEffects": "مصرف طولانی مدت تنبلی روده می دهد.",
-    "sideEffectsAnswer": "مصرف طولانی مدت تنبلی روده می دهد.",
-    "indication": "",
-    "indicationAnswer": "",
-    "dosageForm": "Tablet\nSyrup\nsachet",
-    "drugClassification": "",
-    "dosing": "ملین: 2 قرص روزانه\nمسهل: 3 قرص روزانه",
-    "pregnancyBreastfeeding": "ممنوع در بارداری و شیردهی",
-    "notes": "از مشتقات گیاه سنا\nشروع اثر سریع",
     "sourceTopic": "GI",
     "sourceFile": "GI.docx"
   },
@@ -10923,7 +10845,7 @@ window.DRUG_TOPIC_DATA = [
   {
     "id": "topic-drug-625",
     "brandName": "Creon",
-    "genericName": "انزیم گوارشیانزیم گوارشیPancreatin",
+    "genericName": "Pancreatin",
     "sideEffects": "سردرد\nدرد شکمی\nلنفادنوپاتی",
     "sideEffectsAnswer": "سردرد، درد، لنفادنوپاتی",
     "indication": "",
@@ -10939,8 +10861,8 @@ window.DRUG_TOPIC_DATA = [
   },
   {
     "id": "topic-drug-626",
-    "brandName": "forte",
-    "genericName": "انزیم گوارشیانزیم گوارشیPancreatin",
+    "brandName": "Creon forte",
+    "genericName": "Pancreatin",
     "sideEffects": "سردرد\nدرد شکمی\nلنفادنوپاتی",
     "sideEffectsAnswer": "سردرد، درد، لنفادنوپاتی",
     "indication": "",
